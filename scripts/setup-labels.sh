@@ -26,6 +26,7 @@ echo "Art"
 anlegen "art:anforderung"     "1F6FB2" "Etwas, das gebaut werden soll"
 anlegen "art:fehler"          "B23A2F" "Etwas ist kaputt"
 anlegen "art:frage"           "6B4FA8" "Klaerungsbedarf beim Kunden"
+anlegen "art:pruefung"        "7A6BA8" "Betriebspruefung — ein Mensch fuehrt aus und schliesst, kein PR"
 anlegen "lagebericht"         "3D4B48" "Automatisch erzeugte Wochenuebersicht"
 
 echo "Groesse"
