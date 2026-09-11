@@ -1,0 +1,55 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Hinweise</title>
+<!--
+  Lokales Werkzeug, kein Teil der Anwendung. Aufruf:
+
+      npm run dev
+      → http://localhost:5173/werkzeuge/anzeige.html
+
+  Die Hinweise kommen aus:
+      python scripts/mithoeren.py | python scripts/ausloeser.py > aufnahmen/hinweise.jsonl
+
+  Bewusst ohne Bedienelemente. Kein „annehmen", kein „verwerfen" — was
+  aufgegriffen wird, entscheidet sich im Gespräch, nicht per Klick.
+-->
+<style>
+  body { margin: 0; padding: 1.5rem; font: 16px/1.5 system-ui, sans-serif;
+         background: #14201d; color: #e8efec; }
+  .hinweis { border-left: 3px solid #3d5a52; padding: .4rem 0 .4rem .9rem;
+             margin-bottom: 1.2rem; }
+  .kopf { margin: 0 0 .2rem; }
+  .zeit { color: #7d928b; margin-right: .6rem; font-variant-numeric: tabular-nums; }
+  .zitat { color: #e8efec; }
+  .grund { margin: 0 0 .3rem; color: #7d928b; font-size: .9rem; }
+  .frage { margin: 0; color: #9fd3c0; }
+  .frage::before { content: "→ "; }
+  .leer { color: #566b64; }
+</style>
+<main id="hinweise"><p class="leer">Wartet auf Hinweise …</p></main>
+<script type="module">
+  import { liste } from "/src/anzeige.ts";
+
+  const ziel = document.getElementById("hinweise");
+  const quelle = "/aufnahmen/hinweise.jsonl";
+
+  async function holen() {
+    try {
+      const roh = await fetch(quelle, { cache: "no-store" });
+      if (!roh.ok) return;
+      const zeilen = (await roh.text())
+        .split("\n")
+        .filter((z) => z.trim())
+        .map((z) => JSON.parse(z));
+      ziel.innerHTML = zeilen.length
+        ? liste(zeilen)
+        : '<p class="leer">Wartet auf Hinweise …</p>';
+    } catch {
+      // Ein Lesefehler darf die Anzeige nicht abräumen: Was da steht, ist
+      // besser als ein leeres Fenster mitten im Gespräch.
+    }
+  }
+
+  holen();
+  setInterval(holen, 2000);
+</script>
