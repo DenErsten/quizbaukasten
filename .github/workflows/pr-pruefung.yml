@@ -30,6 +30,46 @@ permissions:
   id-token: write
 
 jobs:
+  # ---------------------------------------------------------------- 0
+  # claude-code-action weigert sich zu laufen, wenn die Workflow-Datei im PR
+  # von der auf dem Zielbranch abweicht ("workflow validation"). Das ist ihre
+  # Sicherung gegen einen PR, der den Pruefer umschreibt und sich anschliessend
+  # von dem veraenderten Pruefer begutachten laesst. Sie ist richtig.
+  #
+  # Fuer uns heisst das: review und abnahme liefern fuer solche PRs grundsaetz-
+  # lich kein Urteil, und die Auswertung blockiert dann im Zweifel. Ohne diesen
+  # Job waere das Repo an seinen eigenen Workflows nicht mehr wartbar — auch
+  # nicht von einem Menschen, weil enforce_admins keine Ausnahme kennt.
+  #
+  # Die Pruefung faellt nicht weg, sie wechselt den Traeger: Fuer genau diese
+  # Pfade verlangt "pfade" bereits die Freigabe eines Menschen aus
+  # scripts/menschen.txt. Wer den Diff gelesen hat, prueft hier besser als ein
+  # Agent, der ueber seine eigenen Regeln urteilen soll. Siehe #12.
+  umfang:
+    name: umfang
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      workflows: ${{ steps.ermitteln.outputs.workflows }}
+    steps:
+      - name: Ändert dieser PR die Workflows?
+        id: ermitteln
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NR: ${{ github.event.pull_request.number }}
+        run: |
+          if gh pr diff "$NR" --name-only | grep -q '^\.github/workflows/'; then
+            echo "workflows=true" >> "$GITHUB_OUTPUT"
+            echo "Dieser PR ändert .github/workflows/." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "review und abnahme können hier nicht urteilen — siehe Job-Hinweis." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "workflows=false" >> "$GITHUB_OUTPUT"
+            echo "Keine Workflow-Änderung. Agenten-Checks urteilen normal." \
+              | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
   # ---------------------------------------------------------------- 1
   pfade:
     name: pfade
@@ -123,14 +163,51 @@ jobs:
   # ---------------------------------------------------------------- 3
   review:
     name: review
+    needs: umfang
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      # Sichtbar statt still. Ein Check, der wortlos verschwindet, ist derselbe
+      # Fehler wie "| tee" und "|| echo": Er sieht geprueft aus und ist es nicht.
+      - name: Übersprungen, und warum
+        if: needs.umfang.outputs.workflows == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NR: ${{ github.event.pull_request.number }}
+        run: |
+          {
+            echo "### review übersprungen"
+            echo
+            echo "Dieser PR ändert \`.github/workflows/\`. \`claude-code-action\` läuft"
+            echo "für solche PRs nicht — sonst könnte ein PR den Prüfer umschreiben"
+            echo "und sich vom veränderten Prüfer begutachten lassen."
+            echo
+            echo "**Geprüft wird trotzdem, nur von einem Menschen:** \`pfade\` verlangt"
+            echo "für diese Pfade die Freigabe von jemandem aus \`scripts/menschen.txt\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if ! gh pr view "$NR" --json comments --jq '.comments[].body' \
+               | grep -q "Agenten-Checks übersprungen"; then
+            {
+              echo "**Agenten-Checks übersprungen.** Dieser PR ändert"
+              echo "\`.github/workflows/\`, und \`claude-code-action\` verweigert für"
+              echo "solche PRs den Dienst — sonst begutachtete ein umgeschriebener"
+              echo "Prüfer seine eigene Umschreibung."
+              echo
+              echo "\`review\` und \`abnahme\` urteilen hier also nicht. Die Prüfung"
+              echo "liegt bei \`pfade\` und damit bei einem Menschen aus"
+              echo "\`scripts/menschen.txt\`, der den Diff gelesen hat."
+            } | gh pr comment "$NR" --body-file -
+          fi
+
       - uses: actions/checkout@v6
+        if: needs.umfang.outputs.workflows != 'true'
         with:
           fetch-depth: 0
 
       - uses: anthropics/claude-code-action@v1
+        if: needs.umfang.outputs.workflows != 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -161,6 +238,7 @@ jobs:
             --allowedTools "Read,Glob,Grep,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*),Bash(git log:*),Bash(git diff:*)"
 
       - name: Urteil auswerten
+        if: needs.umfang.outputs.workflows != 'true'
         run: |
           if [ ! -f urteil.json ]; then
             echo "::error::Der Prüfer hat kein Urteil hinterlassen. Im Zweifel blockiert."
@@ -179,14 +257,51 @@ jobs:
   # ---------------------------------------------------------------- 4
   abnahme:
     name: abnahme
+    needs: umfang
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # Sichtbar statt still. Ein Check, der wortlos verschwindet, ist derselbe
+      # Fehler wie "| tee" und "|| echo": Er sieht geprueft aus und ist es nicht.
+      - name: Übersprungen, und warum
+        if: needs.umfang.outputs.workflows == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NR: ${{ github.event.pull_request.number }}
+        run: |
+          {
+            echo "### abnahme übersprungen"
+            echo
+            echo "Dieser PR ändert \`.github/workflows/\`. \`claude-code-action\` läuft"
+            echo "für solche PRs nicht — sonst könnte ein PR den Prüfer umschreiben"
+            echo "und sich vom veränderten Prüfer begutachten lassen."
+            echo
+            echo "**Geprüft wird trotzdem, nur von einem Menschen:** \`pfade\` verlangt"
+            echo "für diese Pfade die Freigabe von jemandem aus \`scripts/menschen.txt\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if ! gh pr view "$NR" --json comments --jq '.comments[].body' \
+               | grep -q "Agenten-Checks übersprungen"; then
+            {
+              echo "**Agenten-Checks übersprungen.** Dieser PR ändert"
+              echo "\`.github/workflows/\`, und \`claude-code-action\` verweigert für"
+              echo "solche PRs den Dienst — sonst begutachtete ein umgeschriebener"
+              echo "Prüfer seine eigene Umschreibung."
+              echo
+              echo "\`review\` und \`abnahme\` urteilen hier also nicht. Die Prüfung"
+              echo "liegt bei \`pfade\` und damit bei einem Menschen aus"
+              echo "\`scripts/menschen.txt\`, der den Diff gelesen hat."
+            } | gh pr comment "$NR" --body-file -
+          fi
+
       - uses: actions/checkout@v6
+        if: needs.umfang.outputs.workflows != 'true'
         with:
           fetch-depth: 0
 
       - uses: anthropics/claude-code-action@v1
+        if: needs.umfang.outputs.workflows != 'true'
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
@@ -215,6 +330,7 @@ jobs:
             --allowedTools "Read,Glob,Grep,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*)"
 
       - name: Urteil auswerten
+        if: needs.umfang.outputs.workflows != 'true'
         run: |
           if [ ! -f abnahme.json ]; then
             echo "::error::Kein Abnahmeurteil hinterlassen. Im Zweifel blockiert."
