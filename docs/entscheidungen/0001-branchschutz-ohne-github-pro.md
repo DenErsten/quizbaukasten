@@ -1,6 +1,6 @@
 # 0001 — Branchschutz ohne GitHub Pro
 
-**Status:** offen — wartet auf Firat
+**Status:** entschieden — Option A
 **Datum:** 2026-09-11
 **Betrifft:** Gate G1 (kein Merge ohne die vier Checks), Gate G4 (Freigabe Produktion)
 **Issue:** #1
@@ -57,16 +57,99 @@ Leitplanken gibt, an denen er scheitern könnte.
 
 ## Entscheidung
 
-_(offen — trägt Firat ein)_
+**Option A.** Das Repo ist öffentlich. Firat hat am 2026-09-11 entschieden.
+
+Ausschlaggebend war, dass das Argument gegen A bei genauerem Hinsehen keines
+war: Marek Sowa ist eine Planspiel-Figur, `docs/angebote/` ist leer, und es
+gibt kein Kundenmaterial, das geschützt werden müsste. Option A′ hätte ein
+Problem gelöst, das nicht existiert. Übrig blieb ein Nachteil — die
+Commit-Historie wird mitveröffentlicht — gegen zwei Vorteile: funktionierende
+Gates und unbegrenzte Actions-Minuten.
 
 ## Folgen
 
-_(nach der Entscheidung ausfüllen)_
+`scripts/setup-repo.sh` läuft bis 5/5 durch. Nachgeprüft über die API:
 
-## Was sofort gilt, unabhängig von der Entscheidung
+    required_status_checks : pfade, pruefen, review, abnahme   (strict)
+    enforce_admins         : true
+    allow_force_pushes     : false
+    allow_deletions        : false
+    required_linear_history: true
+    Umgebung produktion    : Required Reviewer DenErsten
+    Umgebung staging       : keine Freigabe
 
-`allow_auto_merge` steht seit Schritt 1/5 auf `true`, ohne dass ein einziger
-Check required ist. Solange das so bleibt, ist die einzige Sicherung gegen
-einen ungeprüften Merge die `deny`-Liste in `.claude/settings.json` — also
-genau die Datei, von der dort selbst steht, dass sie die erste
-Verteidigungslinie ist und nicht die letzte.
+Damit gilt Gate G1 technisch und nicht nur als Absicht, und Gate G4 hält den
+Produktions-Deploy an, bis ein Mensch klickt. `enforce_admins: true` schließt
+Firat ausdrücklich mit ein — das ist der Punkt der Übung, nicht ein Versehen.
+
+### Beleg: `scripts/setup-repo.sh` läuft bis 5/5
+
+Lauf vom 2026-09-11, nachdem das Repo öffentlich geschaltet war. Vorher brach
+dasselbe Skript bei 2/5 mit `403 Upgrade to GitHub Pro` ab.
+
+    $ ./scripts/setup-repo.sh
+    Repo:   DenErsten/quizbaukasten
+    Mensch: DenErsten
+
+    1/5  Auto-Merge einschalten
+         an
+
+    2/5  Branch Protection auf main
+         Required Checks: pfade, pruefen, review, abnahme
+
+    3/5  Umgebung 'staging'
+         ohne Freigabe — jeder Merge geht durch
+
+    4/5  Umgebung 'produktion' mit menschlicher Freigabe  (Gate G4)
+         Required Reviewer: DenErsten
+
+    5/5  Gegenproben
+
+Die Werte im Abschnitt oben stammen nicht aus dieser Ausgabe, sondern aus
+einem anschließenden Lesen von `branches/main/protection`. Ein Skript, das
+meldet, es habe etwas gesetzt, ist kein Beleg dafür, dass es gesetzt ist —
+diese Unterscheidung hat an diesem Tag zweimal den Unterschied gemacht.
+
+### Gegenprobe: direkter Push auf main
+
+Am 2026-09-11 von Firat ausgeführt, auf seinem eigenen Repo, mit
+Admin-Rechten. GitHub hat abgelehnt:
+
+    $ git commit --allow-empty -m "darf nicht durchgehen"
+    $ git push origin main
+
+    remote: error: GH006: Protected branch update failed for refs/heads/main.
+    remote:
+    remote: - Changes must be made through a pull request.
+    remote:
+    remote: - 4 of 4 required status checks are expected.
+    To https://github.com/DenErsten/quizbaukasten.git
+     ! [remote rejected] main -> main (protected branch hook declined)
+
+Beide genannten Gründe zählen. Der erste bestätigt, dass der Weg über einen
+Pull Request führt; der zweite, dass die vier Checks tatsächlich als
+*required* eingetragen sind und nicht bloß laufen.
+
+Dass die Ablehnung den Inhaber des Repos trifft, ist der eigentliche
+Nachweis. Ein Schutz, der für alle außer den Besitzer gilt, schützt an dem
+Tag nicht, an dem es darauf ankommt — das war am selben Vormittag zu
+besichtigen, als ein Merge mit zwei roten Checks durchging, weil es zu
+diesem Zeitpunkt keine Branch Protection gab.
+
+Was der Schritt nach sich zieht:
+
+- Die Commit-Mailadresse `firat.keskin@cap3.de` steht in der öffentlichen
+  Historie. Für künftige Commits lässt sich das über eine
+  GitHub-noreply-Adresse vermeiden; rückwirkend nur durch Umschreiben.
+- Actions-Minuten sind unbegrenzt. Vier Claude-Checks je PR plus drei
+  Terminläufe wären auf 2.000 Minuten im Monat eine echte Grenze gewesen.
+- Alles im Repo ist lesbar, auch `.claude/settings.json` und `n8n/*.json`.
+  Beide enthalten keine Zugangsdaten — das bleibt zu prüfen, bevor je ein
+  echter Kunde in diesem Repo auftaucht.
+
+## Was noch offen ist
+
+Die Gates greifen, aber zwei der vier Checks können noch nicht grün werden:
+`review` und `abnahme` brauchen `CLAUDE_CODE_OAUTH_TOKEN`, und das Secret ist
+nicht gesetzt. Bis dahin mergt nichts — was richtig herum falsch ist: das
+System hält an, statt durchzuwinken.
