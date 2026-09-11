@@ -27,7 +27,7 @@ an Produktion ist es nicht.
 ├── .github/
 │   ├── geschuetzte-pfade.txt     Was die KI nicht allein ändern darf
 │   ├── workflows/
-│   │   ├── claude.yml            @claude-Mentions in Issues und PRs
+│   │   ├── claude.yml            Label agent:bauen oder /bau in Issues und PRs
 │   │   ├── pr-pruefung.yml       Die vier Merge-Checks + Auto-Merge
 │   │   ├── deploy-staging.yml    Jeder Merge → Staging, automatisch
 │   │   ├── deploy-produktion.yml Nur mit menschlicher Freigabe (G4)
@@ -87,7 +87,9 @@ gh secret set CLAUDE_CODE_OAUTH_TOKEN
 claude   # dann im Chat: /install-github-app
 ```
 
-Test: In einem Issue `@claude fass diesen Issue in drei Sätzen zusammen` kommentieren.
+Test: In einem Issue `/bau fass diesen Issue in drei Sätzen zusammen` kommentieren —
+oder das Label `agent:bauen` anheften. Nicht `@claude`: Über den Agenten reden und
+ihn beauftragen sollen verschiedene Formen haben, siehe #54.
 
 ### 4. GitHub-MCP an Claude Code lokal
 
