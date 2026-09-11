@@ -1,22 +1,39 @@
-import { stoppHinzufuegen, tourAnlegen, type Tour } from "./tour";
+import { frageHinzufuegen, punkteGesamt, quizAnlegen, rundeHinzufuegen } from "./quiz";
 
 // Absichtlich roh. Der erste echte PR im Planspiel macht hieraus etwas,
-// das Timo aus der Disposition benutzen würde.
+// mit dem Marek am Donnerstagabend tatsächlich ein Quiz zusammenstellen würde.
 
-const beispiel: Tour = stoppHinzufuegen(
-  stoppHinzufuegen(tourAnlegen("2026-09-14", "HH-NL 412"), "Werftstraße 3, Kiel", "08:30"),
-  "Am Kai 17, Rendsburg",
-  "10:15",
-);
+let quiz = quizAnlegen("Sudhaus Monatsquiz");
+quiz = rundeHinzufuegen(quiz, "Musik der Neunziger");
+quiz = frageHinzufuegen(quiz, quiz.runden[0].id, {
+  typ: "auswahl",
+  text: "Wer sang „Wonderwall“?",
+  optionen: ["Blur", "Oasis", "Pulp"],
+  loesung: "Oasis",
+  punkte: 1,
+});
+quiz = frageHinzufuegen(quiz, quiz.runden[0].id, {
+  typ: "schaetzen",
+  text: "In welchem Jahr erschien „Nevermind“?",
+  loesung: 1991,
+  punkte: 2,
+});
 
 const app = document.querySelector<HTMLElement>("#app");
 if (app) {
   app.innerHTML = `
-    <h1>Tour ${beispiel.datum} — ${beispiel.fahrzeug}</h1>
-    <ol>
-      ${beispiel.stopps
-        .map((s) => `<li>${s.ankunft ?? "--:--"} &nbsp; ${s.adresse}</li>`)
-        .join("")}
-    </ol>
+    <h1>${quiz.titel}</h1>
+    <p>${punkteGesamt(quiz)} Punkte zu holen</p>
+    ${quiz.runden
+      .map(
+        (r) => `
+      <section>
+        <h2>${r.titel}</h2>
+        <ol>
+          ${r.fragen.map((f) => `<li>${f.text} <small>(${f.punkte})</small></li>`).join("")}
+        </ol>
+      </section>`,
+      )
+      .join("")}
   `;
 }

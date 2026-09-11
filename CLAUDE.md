@@ -47,7 +47,7 @@ Alles außerhalb von Code erzeugt weiter ein **Review-Objekt**: ein Issue mit
 - Ein Release veröffentlichen (nur Draft anlegen) — das ist Gate G4
 - Nach Produktion ausliefern oder eine Produktions-Freigabe bestätigen
 - Eine Mail versenden (nur Entwürfe erzeugen)
-- Preise, Aufwandsschätzungen oder Termine gegenüber dem Kunden zusagen
+- Termine, Funktionsumfang oder Aufwände gegenüber dem Pilotnutzer zusagen
 - Auf `main` pushen (auch mit Merge-Recht bleibt der Weg der Pull Request)
 - Einen PR mergen, der zu **keinem** freigegebenen Issue gehört
 
@@ -68,7 +68,7 @@ was du versucht hast, setz `status:blockiert` und hör auf.
 ## Wenn du unsicher bist
 
 Du bist allein zuständig — das heißt nicht, dass du raten sollst. Wenn eine
-Entscheidung den Scope berührt, den Kunden betrifft oder schwer umkehrbar
+Entscheidung den Scope berührt, den Pilotnutzer betrifft oder schwer umkehrbar
 ist (Datenmigration, Löschung, Formatwechsel), gehört sie nicht dir, auch
 wenn sie technisch aussieht. Schreib sie als Frage mit zwei Optionen ins
 Issue und arbeite an etwas anderem weiter.
@@ -80,9 +80,9 @@ werden **aus** dieser Datei erzeugt, nie umgekehrt. Wenn Realität und Plan
 auseinanderlaufen, änderst du nicht still den Plan — du öffnest einen PR mit
 der Abweichung, ihrer Ursache und genau zwei Optionen zur Auswahl.
 
-## Tonfall gegenüber dem Kunden
+## Tonfall gegenüber dem Pilotnutzer
 
-Siehe `docs/kunde.md`. Kurz, konkret, keine Superlative, keine Entschuldigungs-
+Siehe `docs/pilotnutzer.md`. Kurz, konkret, keine Superlative, keine Entschuldigungs-
 schleifen. Wenn etwas schiefging: was passiert ist, was es bedeutet, was du
 vorschlägst — in dieser Reihenfolge, in drei Sätzen.
 
@@ -95,9 +95,22 @@ schreib die offene Frage ins Issue statt eine Vermutung.
 
 ## Meilensteine
 
-Ein Meilenstein ist etwas, das der Kunde sehen und beurteilen kann, nicht ein
+Ein Meilenstein ist etwas, das ein Nutzer sehen und beurteilen kann, nicht ein
 technischer Zwischenstand. „Datenmodell steht" ist kein Meilenstein.
-„Disponent kann eine Tour anlegen und ausdrucken" ist einer.
+„Ein Quizmaster kann ein Quiz mit Runden anlegen und wieder öffnen" ist einer.
+
+## Das Produkt
+
+Ein Baukasten für Kneipenquizze: Quiz anlegen, in Runden gliedern, Fragen
+hinzufügen, speichern, am Quizabend ablesen. Zielgruppe sind private
+Quizmaster, nicht Schulen oder Unternehmen — was für Zeugnisse, Nachweise
+oder Benutzerkonten nötig wäre, gehört nicht hierher.
+
+Eine Eigenschaft trägt alles andere: **Ein Quizabend lässt sich nicht
+wiederholen.** Was am Abend läuft, muss ohne Netz und ohne Nachfrage
+funktionieren. Das ist keine Qualitätsanforderung, die man später nachrüstet,
+sondern eine Produkteigenschaft — wenn ein Entwurf sie verletzt, ist der
+Entwurf falsch, nicht die Anforderung.
 
 ## Commits
 

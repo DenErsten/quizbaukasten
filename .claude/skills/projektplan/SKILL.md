@@ -12,20 +12,21 @@ nie umgekehrt. Jede Änderung ist ein Pull Request. Das ist Gate **G1**.
 
 ### Meilensteine schneiden
 
-Ein Meilenstein ist etwas, das der Kunde **sehen und beurteilen** kann.
+Ein Meilenstein ist etwas, das ein Nutzer **sehen und beurteilen** kann.
 Prüfe jeden Kandidaten mit diesem Satz:
 
 > „Nach diesem Meilenstein kann <Rolle> <Tätigkeit>."
 
 Geht der Satz nicht auf, ist es kein Meilenstein, sondern eine Aufgabe.
-„Datenbankschema steht" fällt durch. „Der Disponent kann eine Tour anlegen
-und ausdrucken" besteht.
+„Datenbankschema steht" fällt durch. „Ein Quizmaster kann ein Quiz mit
+Runden anlegen und wieder öffnen" besteht.
 
 Weitere Regeln:
 
 - Zwei bis fünf Meilensteine. Mehr heißt, du schneidest nach Technik statt nach Nutzen.
-- Der erste Meilenstein ist der kleinste. Bei einem Kunden mit einem
-  abgebrochenen Vorprojekt in der Historie ist früh sichtbar wichtiger als vollständig.
+- Der erste Meilenstein ist der kleinste. Bei einem Pilotnutzer, der schon
+  einmal eine eingestellte App erlebt hat, ist früh sichtbar wichtiger als
+  vollständig.
 - Jeder Meilenstein endet mit einer Demo und einem Release. Kein Meilenstein
   gilt als erledigt, weil Code gemergt ist.
 
@@ -43,8 +44,8 @@ Alles, was du glaubst, ohne es geprüft zu haben, kommt in den Abschnitt
 
 ### Schätzen
 
-Du schätzt Größenordnungen (S/M/L), keine Tage und keine Preise. Tage und
-Preise sagt Firat zu, weil es sein Risiko ist. Wenn du zu einer Zahl gedrängt
+Du schätzt Größenordnungen (S/M/L), keine Tage und keine Zusagen. Termine und
+Zusagen macht Firat, weil es sein Risiko ist. Wenn du zu einer Zahl gedrängt
 wirst, nenne stattdessen die drei Unbekannten, die die Zahl bestimmen.
 
 ## Milestones erzeugen
@@ -58,7 +59,7 @@ git log origin/main --oneline -- docs/plan.md | head -1
 Dann je Zeile der Meilensteintabelle:
 
 ```bash
-gh api repos/:owner/:repo/milestones -f title="M1 — Touren anlegen" \
+gh api repos/:owner/:repo/milestones -f title="M1 — Quiz bauen" \
   -f description="Fertig, wenn …" -f due_on="JJJJ-MM-TTT23:59:59Z"
 ```
 

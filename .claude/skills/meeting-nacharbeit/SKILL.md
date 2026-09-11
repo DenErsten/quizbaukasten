@@ -19,7 +19,7 @@ Liegt eine Audiodatei statt eines Transkripts vor:
 
 Das Ergebnis landet in `aufnahmen/<name>.transkript.md` mit Sprecherkennzeichnung
 und Zeitmarken. Sprecher heißen dort `SPEAKER_00`, `SPEAKER_01` … — ordne sie
-anhand von `docs/kunde.md` und dem Gesprächsinhalt echten Namen zu und schreib
+anhand von `docs/pilotnutzer.md` und dem Gesprächsinhalt echten Namen zu und schreib
 die Zuordnung oben ins Protokoll. Wenn du dir bei einem Sprecher nicht sicher
 bist, schreib `SPEAKER_01 (unklar)` — rate nicht.
 
@@ -50,7 +50,7 @@ ist wichtiger als er aussieht: hier stehen die Dinge, die in vier Wochen
 als "das hatten wir doch geklärt" wiederkommen.
 
 ## Zitate
-Höchstens drei wörtliche Sätze, die den Ton oder eine Sorge des Kunden tragen.
+Höchstens drei wörtliche Sätze, die den Ton oder eine Sorge des Pilotnutzers tragen.
 ```
 
 Regeln: Keine Interpretation im Protokoll. Wenn jemand „eigentlich müssten wir
@@ -77,8 +77,8 @@ Titel `Zusage: <kurz> (#<issue>)`, Erinnerung zwei Tage vorher.
 
 ### 5. Mail-Entwurf
 
-Zusammenfassung für den Kunden — **als Entwurf**, nie senden. Ton nach
-`docs/kunde.md`. Aufbau: ein Satz Dank, die Entscheidungen als Liste, die
+Zusammenfassung für den Pilotnutzer — **als Entwurf**, nie senden. Ton nach
+`docs/pilotnutzer.md`. Aufbau: ein Satz Dank, die Entscheidungen als Liste, die
 Zusagen mit Terminen, die offenen Fragen als nummerierte Rückfragen. Höchstens
 200 Wörter. Kein „wir freuen uns auf die weitere Zusammenarbeit".
 

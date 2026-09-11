@@ -14,7 +14,7 @@ Klare Trennung für das Camp:
 |----------|--------------|
 | Issue, PR, Kommentar, `@claude`, Cron im Repo | GitHub Actions |
 | Datei im Ordner, Mail, Telegram, Webhook von außen | n8n |
-| Etwas verändern, das der Kunde sieht | ein Mensch |
+| Etwas verändern, das Nutzer sehen | ein Mensch |
 
 **Wichtiger Grundsatz:** Die Freigabeknöpfe in n8n geben immer nur einen
 *Automatisierungsschritt* frei („soll ich das Protokoll jetzt bauen?"), nie
@@ -101,7 +101,7 @@ nimmt es sonst zurück, kommentiert das Issue und schickt Alarm.
 
 **Zu ergänzen, wenn Zeit bleibt:** Webhook-Secret prüfen. Ohne Prüfung kann
 jeder, der die URL kennt, Ereignisse einspeisen. Für ein Planspiel im lokalen
-Netz vertretbar, für echte Kundenprojekte nicht — im Code-Node den
+Netz vertretbar, für echten Betrieb nicht — im Code-Node den
 `X-Hub-Signature-256`-Header gegen das Secret verifizieren.
 
 Genau dieser Workflow ist die Demo an Tag 3: Lass den Agenten absichtlich
@@ -116,6 +116,6 @@ zwischen einem Prozess und einem Vorsatz.
 - **Code schreiben oder reviewen.** Gehört in GitHub Actions, weil dort
   der Code und der Diff liegen.
 - **Mails versenden.** G5 sagt: Entwurf ja, Versand nein. Ein n8n-Workflow,
-  der eine Mail an den Kunden schickt, hebelt das Gate aus, egal wie viele
+  der eine Mail an den Pilotnutzer schickt, hebelt das Gate aus, egal wie viele
   Freigabeknöpfe davor hängen.
 - **Den Projektplan ändern.** Der Plan ändert sich nur über einen PR.

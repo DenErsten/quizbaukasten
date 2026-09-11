@@ -1,22 +1,22 @@
 ---
 name: kundenmail
-description: Einen Mailentwurf an den Kunden schreiben — Status, Rückfrage, Verzugsmeldung oder Meilenstein-Übergabe. Nutzen bei "Mail an den Kunden", "Status schreiben", "Kunden informieren". Erzeugt immer nur einen Entwurf.
+description: Einen Mailentwurf an den Pilotnutzer schreiben — Status, Rückfrage, Verzugsmeldung oder Meilenstein-Übergabe. Nutzen bei "Mail an den Pilotnutzer", "Status schreiben", "Pilotnutzer informieren". Erzeugt immer nur einen Entwurf.
 ---
 
-# Kundenmail entwerfen
+# Nachricht an den Pilotnutzer entwerfen
 
 Du erzeugst **ausschließlich Entwürfe**. Der Mail-Server hat kein `send` für dich,
 und das ist Absicht: Gate **G5**.
 
 ## Vorher immer
 
-Lies `docs/kunde.md` — Ansprechpartner, Tonfall, empfindliche Punkte. Lies das
+Lies `docs/pilotnutzer.md` — Ansprechpartner, Tonfall, empfindliche Punkte. Lies das
 letzte Protokoll in `docs/meetings/`, damit du nichts wiederholst und nichts
 übergehst, was offen geblieben ist.
 
 ## Aufbau
 
-Der wichtigste Satz steht **oben**. Kunden lesen Mails auf dem Handy zwischen
+Der wichtigste Satz steht **oben**. Er liest Mails auf dem Handy zwischen
 zwei Terminen; ein Fazit im letzten Absatz erreicht niemanden.
 
 | Anlass | Erster Satz |
@@ -43,14 +43,14 @@ der Erkenntnis, nicht am Tag des Termins.
 - Zusagen zu Preisen, Aufwänden oder Terminen, die nicht schon in
   `docs/plan.md` stehen. Wenn eine Zusage nötig ist: Platzhalter
   `[[TERMIN — Firat setzt ein]]` schreiben und im PR darauf hinweisen.
-- Eine Anforderung des Kunden als angenommen darstellen, bevor ein Issue
+- Eine Anforderung des Pilotnutzers als angenommen darstellen, bevor ein Issue
   freigegeben ist
 
 ## Wenn schlechte Nachrichten drinstehen
 
 Markiere den Entwurf oben mit `<!-- HEIKEL: bitte Wort fuer Wort lesen -->`.
-Hier kostet ein glattgebügelter KI-Satz echtes Vertrauen, und der Kunde in
-`docs/kunde.md` hat bereits ein abgebrochenes Projekt hinter sich.
+Hier kostet ein glattgebügelter KI-Satz echtes Vertrauen, und der Pilotnutzer in
+`docs/pilotnutzer.md` hat bereits eine eingestellte Quiz-App hinter sich.
 
 ## Ablage
 

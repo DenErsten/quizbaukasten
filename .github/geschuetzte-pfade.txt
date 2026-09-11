@@ -18,7 +18,7 @@ scripts/menschen.txt
 
 # --- Der Plan und die Kundenwahrheit ---
 docs/plan.md
-docs/kunde.md
+docs/pilotnutzer.md
 docs/angebote/**
 
 # --- Tests: das Netz darf nicht der reparieren, der hineinfällt ---

@@ -1,4 +1,4 @@
-# Projektplan — Nordlicht Tourenplaner
+# Projektplan — Quizbaukasten
 
 > Diese Datei ist die Quelle der Wahrheit. GitHub-Milestones werden hieraus
 > erzeugt. Jede Änderung ist ein Pull Request. Gate: **G1**.
@@ -10,31 +10,46 @@
 
 ## Ziel in einem Satz
 
-Nordlicht Logistik plant Touren heute in Excel; der Tourenplaner soll das
-Anlegen, Zuweisen und Ausdrucken einer Tagestour für vier Disponenten ersetzen.
+Wer ein Kneipenquiz veranstaltet, soll ein Quiz in einer halben Stunde
+zusammenstellen können statt an zwei Abenden — und es am Quizabend sicher
+vom Bildschirm ablesen können.
+
+## Für wen zuerst
+
+Quizmaster privater Abende: Kneipen-, Vereins- und Geburtstagsquiz. Eine
+Person baut, eine Person moderiert, Teams spielen auf Papier.
+Erster Pilotnutzer: siehe [`pilotnutzer.md`](pilotnutzer.md).
 
 ## Was nicht dazugehört
 
 Ausdrücklich außerhalb des Scopes — hier steht, was **nicht** gebaut wird,
-damit „Können wir noch schnell…" eine Planänderung ist und keine Nebenbemerkung.
+damit „können wir noch schnell…" eine Planänderung ist und keine Nebenbemerkung.
 
-- Routenoptimierung / Kartenmaterial
-- Anbindung an das Bestandssystem (nur CSV-Import)
-- Mobile App für Fahrer
+- Teams antworten über ihre eigenen Handys (Live-Multiplayer)
+- Benutzerkonten und Anmeldung
+- Fragen-Datenbank, Import fertiger Fragenkataloge, KI-generierte Fragen
+- Buzzer, Zeitdruck, Musik- oder Videofragen
+- Mehrere Quizmaster gleichzeitig am selben Quiz
+
+## Was uns eng macht
+
+Ein Quizabend lässt sich nicht wiederholen. Was am Abend selbst läuft,
+muss auch ohne Netz und ohne Nachfrage funktionieren — das ist keine
+Qualitätsanforderung, sondern eine Produkteigenschaft, und sie gilt ab M2.
 
 ---
 
 ## Meilensteine
 
-| # | Meilenstein | Abnahmekriterium (der Kunde kann …) | Ziel | Status |
-|---|-------------|--------------------------------------|------|--------|
-| M1 | Touren anlegen | … eine Tour mit Stopps anlegen und speichern | | offen |
-| M2 | Zuweisen & drucken | … eine Tour einem Fahrer zuweisen und als PDF drucken | | offen |
-| M3 | CSV-Import | … die Aufträge des Tages aus dem Bestandssystem importieren | | offen |
+| # | Meilenstein | Abnahmekriterium (der Quizmaster kann …) | Ziel | Status |
+|---|-------------|-------------------------------------------|------|--------|
+| M1 | Quiz bauen | … ein Quiz mit Runden und Fragen anlegen, speichern und wieder öffnen | | offen |
+| M2 | Abend moderieren | … das Quiz Frage für Frage anzeigen, Antworten der Teams erfassen und den Punktestand sehen | | offen |
+| M3 | Wiederverwenden | … ein Quiz als Vorlage kopieren und einzelne Runden austauschen | | offen |
 
-Jeder Meilenstein endet mit einer **Demo am geteilten Bildschirm** und einem
-veröffentlichten Release. Kein Meilenstein gilt als erledigt, weil der Code
-gemergt ist.
+Jeder Meilenstein endet mit einer **Demo am geteilten Bildschirm** mit dem
+Pilotnutzer und einem veröffentlichten Release. Kein Meilenstein gilt als
+erledigt, weil der Code gemergt ist.
 
 ---
 
@@ -43,9 +58,13 @@ gemergt ist.
 Was wir glauben, ohne es geprüft zu haben. Kippt eine Annahme, ist das ein
 PR auf diese Datei, kein stiller Umbau.
 
-- A1: Die CSV aus dem Bestandssystem hat ein stabiles Format.
-- A2: Vier gleichzeitige Nutzer, keine Lastanforderungen.
-- A3: Der Druck läuft über den Browser, kein eigener Druckserver.
+- A1: Fünf Runden à sechs Fragen ist die übliche Größe. Wenn Quizze deutlich
+  größer werden, trägt die flache Darstellung aus M1 nicht.
+- A2: Der Quizmaster arbeitet am Laptop, nicht am Handy.
+- A3: Ein Quiz im Browser zu speichern reicht fürs Erste — bis jemand sein
+  Quiz verliert. Dann ist A3 widerlegt und M3 wird dringend.
+- A4: Schätzfragen brauchen „wer am nächsten dran ist", nicht „exakt richtig".
+  Im Code ist das bewusst noch nicht so; die Regel gehört zur Auswertung in M2.
 
 ## Offene Punkte
 

@@ -5,7 +5,7 @@ Gebaut für ein dreitägiges Codecamp mit 2–3 Personen.
 
 **Leitprinzip:** Über Code entscheidet die KI — sie mergt ihre PRs selbst.
 Über alles andere entscheidet der Mensch: Scope, Plan, welche Tickets
-überhaupt gebaut werden, die Regeln des Agenten selbst, und was beim Kunden
+überhaupt gebaut werden, die Regeln des Agenten selbst, und was bei Nutzern
 landet. Der Merge ist frei, weil vier Checks ihn tragen; die Auslieferung
 an Produktion ist es nicht.
 
@@ -17,12 +17,13 @@ an Produktion ist es nicht.
 .
 ├── CLAUDE.md                     Arbeitsregeln, die der Agent bei jedem Lauf liest
 ├── PLANSPIEL.md                  Drehbuch für den Live-Durchlauf an Tag 3
+├── src/ tests/                   Quizbaukasten — Kern und 20 Tests
 ├── docs/
 │   ├── plan.md                   Der Projektplan — Quelle der Wahrheit für Meilensteine
-│   ├── kunde.md                  Kundenprofil, Ansprechpartner, Tonfall
+│   ├── pilotnutzer.md            Wer ihn benutzt, was ihn bremst, Tonfall
 │   ├── meetings/                 Protokolle (vom Agenten erzeugt, von dir gemergt)
 │   ├── entscheidungen/           ADRs
-│   └── angebote/                 Angebote als Markdown
+│   └── angebote/                 Angebote und Pilotvereinbarungen
 ├── .github/
 │   ├── geschuetzte-pfade.txt     Was die KI nicht allein ändern darf
 │   ├── workflows/
@@ -39,7 +40,7 @@ an Produktion ist es nicht.
 │   └── skills/
 │       ├── projektplan/          Plan bauen und fortschreiben
 │       ├── meeting-nacharbeit/   Transkript → Protokoll → Tickets
-│       └── kundenmail/           Mailentwurf im richtigen Ton
+│       └── kundenmail/           Nachricht an den Pilotnutzer, im richtigen Ton
 ├── scripts/
 │   ├── menschen.txt              Wessen Freigabe zählt
 │   ├── pfad_pruefung.py          Der Wächter über den Selbstumbau
@@ -59,8 +60,8 @@ an Produktion ist es nicht.
 ### 1. Repo anlegen
 
 ```bash
-gh repo create nordlicht-tourenplaner --private --clone
-cd nordlicht-tourenplaner
+gh repo create quizbaukasten --private --clone
+cd quizbaukasten
 # Inhalt dieses Starter-Kits hineinkopieren
 git add -A && git commit -m "Studio-OS Grundgerüst" && git push
 ```
@@ -116,7 +117,7 @@ python scripts/voice_dialog.py
 | G2 | Welche Tickets überhaupt gebaut werden | Check `abnahme` blockt PRs ohne `status:freigegeben` |
 | G3 | **Die Leitplanken der KI** | Check `pfade` — Merge blockiert ohne menschliche Freigabe |
 | G4 | Was in Produktion geht | Environment `produktion` mit Required Reviewer |
-| G5 | Jede Zeile an den Kunden | Agent hat nur Entwurf-Schreibrechte, kein `send` |
+| G5 | Jede Zeile an den Pilotnutzer | Agent hat nur Entwurf-Schreibrechte, kein `send` |
 
 **G3 hat sich verschoben.** Früher war es der Diff. Jetzt entscheidet die KI
 über den Diff, und der Mensch entscheidet über die Regeln, nach denen sie
