@@ -44,9 +44,12 @@
       ziel.innerHTML = zeilen.length
         ? liste(zeilen)
         : '<p class="leer">Wartet auf Hinweise …</p>';
-    } catch {
-      // Ein Lesefehler darf die Anzeige nicht abräumen: Was da steht, ist
-      // besser als ein leeres Fenster mitten im Gespräch.
+    } catch (fehler) {
+      // Was da steht, ist besser als ein leeres Fenster mitten im Gespräch —
+      // die Anzeige bleibt also stehen. Spurlos verschwinden darf der Fehler
+      // trotzdem nicht: Wer sich fragt, warum nichts mehr nachkommt, muss es
+      // irgendwo nachlesen können.
+      console.warn("Hinweise nicht lesbar:", fehler);
     }
   }
 
