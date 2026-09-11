@@ -356,13 +356,29 @@ jobs:
     steps:
       - name: Auto-Merge einschalten
         env:
-          GH_TOKEN: ${{ github.token }}
+          # NICHT github.token: Das Standard-Token von Actions darf
+          # enablePullRequestAutoMerge nicht aufrufen, unabhaengig von den
+          # permissions: im Workflow. BOT_TOKEN ist ein klassisches Token des
+          # Maschinenkontos quizberater — dadurch traegt ein autonomer Merge
+          # dessen Namen und ist in der Historie von einem menschlichen
+          # unterscheidbar. Siehe #18 und #10.
+          GH_TOKEN: ${{ secrets.BOT_TOKEN }}
           # Dieser Job hat bewusst keinen Checkout — er braucht keine Dateien.
           # Ohne Arbeitsverzeichnis findet gh aber auch kein Repo und bricht ab
           # mit "fatal: not a git repository". GH_REPO ersetzt den Checkout.
           GH_REPO: ${{ github.repository }}
           NR: ${{ github.event.pull_request.number }}
         run: |
+          # Ein fehlendes Secret ist kein erwarteter Fall. Ohne diese Pruefung
+          # liefe gh in einen Authentifizierungsfehler, der Fallback unten
+          # kennt ihn nicht, und der Job wuerde rot — aber mit einer Meldung,
+          # aus der niemand das fehlende Secret ablesen kann.
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::Secret BOT_TOKEN ist nicht gesetzt."
+            echo "::error::Ohne das Token kann Auto-Merge nicht aktiviert werden."
+            exit 1
+          fi
+
           # Schaltet nur die Absicht frei. Gemergt wird erst, wenn pfade,
           # pruefen, review und abnahme gruen sind — das entscheidet GitHub,
           # nicht dieser Job und nicht der Agent.
