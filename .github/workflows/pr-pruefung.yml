@@ -217,10 +217,32 @@ jobs:
       - name: Auto-Merge einschalten
         env:
           GH_TOKEN: ${{ github.token }}
+          # Dieser Job hat bewusst keinen Checkout — er braucht keine Dateien.
+          # Ohne Arbeitsverzeichnis findet gh aber auch kein Repo und bricht ab
+          # mit "fatal: not a git repository". GH_REPO ersetzt den Checkout.
+          GH_REPO: ${{ github.repository }}
           NR: ${{ github.event.pull_request.number }}
         run: |
           # Schaltet nur die Absicht frei. Gemergt wird erst, wenn pfade,
           # pruefen, review und abnahme gruen sind — das entscheidet GitHub,
           # nicht dieser Job und nicht der Agent.
-          gh pr merge "$NR" --auto --squash --delete-branch \
-            || echo "Auto-Merge nicht aktivierbar (Draft, Konflikt oder bereits gesetzt)."
+          if ausgabe="$(gh pr merge "$NR" --auto --squash --delete-branch 2>&1)"; then
+            echo "Auto-Merge scharf. GitHub mergt, sobald alle vier Checks gruen sind."
+            exit 0
+          fi
+
+          echo "$ausgabe"
+
+          # Nur diese Faelle sind erwartet. Bei allem anderen wird der Job rot:
+          # ein Fallback, der jeden Fehler auffaengt, ist an dieser Stelle
+          # dasselbe wie kein Job — er meldet gruen, ohne etwas getan zu haben.
+          case "$ausgabe" in
+            *"draft state"*|*"already enabled"*|*"not mergeable"*|*"Merge conflict"*)
+              echo "Erwarteter Fall. Auto-Merge bleibt aus, der PR bleibt offen."
+              exit 0
+              ;;
+          esac
+
+          echo "::error::Auto-Merge liess sich nicht aktivieren, und der Grund"
+          echo "::error::steht nicht auf der Liste der erwarteten Faelle."
+          exit 1
