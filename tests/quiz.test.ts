@@ -172,6 +172,50 @@ describe("speichern und laden", () => {
   it("weist ein unvollständiges Quiz zurück", () => {
     expect(() => quizLaden('{"id":"x"}')).toThrow(QuizFehler);
   });
+
+  it("weist eine Runde ohne fragen-Array zurück", () => {
+    const roh = JSON.stringify({
+      id: "x",
+      titel: "y",
+      runden: [{ id: "r1", titel: "Runde 1", fragen: "keins" }],
+    });
+    expect(() => quizLaden(roh)).toThrow(QuizFehler);
+  });
+
+  it("weist eine Frage ohne Text zurück", () => {
+    const roh = JSON.stringify({
+      id: "x",
+      titel: "y",
+      runden: [
+        {
+          id: "r1",
+          titel: "Runde 1",
+          fragen: [{ id: "f1", typ: "freitext", loesung: "a", punkte: 1 }],
+        },
+      ],
+    });
+    expect(() => quizLaden(roh)).toThrow(QuizFehler);
+  });
+
+  it("weist einen unbekannten Fragetyp zurück", () => {
+    const roh = JSON.stringify({
+      id: "x",
+      titel: "y",
+      runden: [
+        {
+          id: "r1",
+          titel: "Runde 1",
+          fragen: [{ id: "f1", typ: "multiple-choice", text: "?", loesung: "a", punkte: 1 }],
+        },
+      ],
+    });
+    expect(() => quizLaden(roh)).toThrow(QuizFehler);
+  });
+
+  it("übersteht speichern und laden weiterhin unverändert", () => {
+    const q = beispielQuiz();
+    expect(quizLaden(quizSpeichern(q))).toEqual(q);
+  });
 });
 
 describe("Fragetypen", () => {

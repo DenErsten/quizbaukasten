@@ -170,6 +170,40 @@ export function quizSpeichern(quiz: Quiz): string {
   return JSON.stringify(quiz, null, 2);
 }
 
+const FRAGETYPEN: readonly Fragetyp[] = ["auswahl", "freitext", "schaetzen"];
+
+function pruefeGeladeneFrage(frage: unknown, rIndex: number, fIndex: number): void {
+  const ort = `Runde ${rIndex + 1}, Frage ${fIndex + 1}`;
+  const f = frage as Partial<Frage> | null;
+  if (!f || typeof f !== "object" || !f.id) {
+    throw new QuizFehler(`${ort}: unvollständig.`);
+  }
+  if (!FRAGETYPEN.includes(f.typ as Fragetyp)) {
+    throw new QuizFehler(`${ort}: unbekannter Fragetyp.`);
+  }
+  if (!f.text) {
+    throw new QuizFehler(`${ort}: kein Text.`);
+  }
+  if (f.loesung === undefined || f.loesung === null) {
+    throw new QuizFehler(`${ort}: keine Lösung.`);
+  }
+  if (typeof f.punkte !== "number") {
+    throw new QuizFehler(`${ort}: keine Punktzahl.`);
+  }
+}
+
+function pruefeGeladeneRunde(runde: unknown, rIndex: number): void {
+  const ort = `Runde ${rIndex + 1}`;
+  const r = runde as Partial<Runde> | null;
+  if (!r || typeof r !== "object" || !r.id || !r.titel) {
+    throw new QuizFehler(`${ort}: unvollständig.`);
+  }
+  if (!Array.isArray(r.fragen)) {
+    throw new QuizFehler(`${ort}: Fragen fehlen.`);
+  }
+  r.fragen.forEach((frage, fIndex) => pruefeGeladeneFrage(frage, rIndex, fIndex));
+}
+
 export function quizLaden(roh: string): Quiz {
   let daten: unknown;
   try {
@@ -181,5 +215,6 @@ export function quizLaden(roh: string): Quiz {
   if (!q?.id || !q?.titel || !Array.isArray(q.runden)) {
     throw new QuizFehler("Gespeichertes Quiz ist unvollständig.");
   }
+  q.runden.forEach((runde, rIndex) => pruefeGeladeneRunde(runde, rIndex));
   return q as Quiz;
 }
