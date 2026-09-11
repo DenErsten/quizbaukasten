@@ -93,6 +93,23 @@ Ein gutes Issue hat: einen Satz Kontext, ein prüfbares Abnahmekriterium
 Abnahmekriterium. Wenn du es nicht formulieren kannst, weißt du zu wenig — dann
 schreib die offene Frage ins Issue statt eine Vermutung.
 
+**Ein Abnahmekriterium muss am Diff nachweisbar sein** — an Code, an einem
+Test, an einer Datei. Der Prüfer in Gate G3 sieht nichts als den Diff und das
+Issue; was außerhalb davon geschah, kann er nicht annehmen, und er soll es
+auch nicht. Ein ins Repo getipptes Terminal-Transkript ist eine Behauptung
+über die Vergangenheit, kein Nachweis.
+
+Betriebliches gehört deshalb nicht in ein Issue mit PR, sondern in ein
+eigenes mit Label `art:pruefung`: „Der Push auf `main` wird abgelehnt",
+„Die Anwendung läuft ohne Netz", „Der Pilotnutzer kommt allein durch den
+Ablauf". Solche Issues haben keinen PR und durchlaufen keine Abnahme — **ein
+Mensch führt die Prüfung aus, schreibt das Ergebnis hinein und schließt sie.**
+Die Belege gehören trotzdem ins Repo, etwa ins ADR; sie sind dort Protokoll,
+nicht Nachweis.
+
+Ein Und-Kriterium, dessen Teile in beide Kategorien fallen, wird geteilt.
+Sonst blockiert der Prüfer auf ewig, und zwar zu Recht.
+
 ## Meilensteine
 
 Ein Meilenstein ist etwas, das ein Nutzer sehen und beurteilen kann, nicht ein
