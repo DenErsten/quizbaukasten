@@ -68,6 +68,27 @@ Für jede Zusage und jede Anforderung ein Issue:
 - Kein Abnahmekriterium erfindbar? Dann als `art:frage` anlegen und die offene
   Frage hineinschreiben
 
+**Vorher entscheiden, welche Sorte Issue es ist.** `CLAUDE.md`, Abschnitt
+„Issues", verlangt: Ein Abnahmekriterium muss am Diff nachweisbar sein. Der
+Prüfer in Gate G3 sieht nichts als den Diff und das Issue.
+
+Aus einem Meeting kommen aber fast nur betriebliche Zusagen. Drei Fälle:
+
+| Was gesagt wurde | Sorte | Warum |
+|---|---|---|
+| „Ein Quiz soll sich kopieren lassen" | gewöhnliches Issue | Code, Test, Datei — am Diff belegbar |
+| „Das muss am Abend ohne Netz laufen" | `art:pruefung` | kein Diff belegt, dass es im Betrieb hielt |
+| „Kopieren soll gehen, und zwar offline" | **zwei Issues** | gemischt — teilen, nicht zusammenpressen |
+
+Ein `art:pruefung`-Issue hat keinen PR und durchläuft keine Abnahme: Ein
+Mensch führt die Prüfung aus, trägt das Ergebnis ein und schließt sie. Schreib
+ins Issue, **wie** geprüft wird und **woran** man Bestehen erkennt — sonst ist
+es in vier Wochen unentscheidbar.
+
+Im Zweifel `art:pruefung`. Ein Issue, das ein Mensch abnimmt, kostet zehn
+Minuten. Ein gewöhnliches Issue mit einem Kriterium, das kein Diff erfüllen
+kann, blockiert für immer — das ist an #1 dreimal passiert, bevor es auffiel.
+
 Trag die Issue-Nummern in die Zusagen-Tabelle des Protokolls nach.
 
 ### 4. Kalender
@@ -95,3 +116,6 @@ und **worüber Firat entscheiden muss**.
 - `docs/plan.md` ändern, weil im Meeting ein Termin genannt wurde — das ist
   eine Zeile in „Abweichungen" und ein eigener PR
 - Sprecher raten, die du nicht sicher zuordnen kannst
+- Ein Und-Kriterium formulieren, dessen Teile in beide Sorten fallen. Der
+  Prüfer geht sie einzeln durch und blockiert, sobald ein Teil nicht am Diff
+  belegt ist — zu Recht. Teile das Issue beim Schreiben, nicht hinterher.
