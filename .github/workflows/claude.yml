@@ -1,16 +1,32 @@
 name: Claude
 
+# Der Ausloeser ist bewusst NICHT "@claude". Ueber den Agenten reden und ihn
+# beauftragen hatten dieselbe Form: Am 2026-09-11 hat der Kommentar "@claude
+# ist freigegeben" — gemeint als Nachricht an einen Menschen — einen Lauf
+# gestartet, der ein bereits gebautes Ticket ein zweites Mal gebaut hat.
+# Auch ein Befund ueber den Agenten startete ihn, weil darin sein Name stand.
+# Siehe #54.
+#
+# Zwei Wege, beide ausdruecklich:
+#   Label "agent:bauen" anheften  — der Knopf, ein Klick im Issue
+#   "/bau" in einen Kommentar     — fuer den, der ohnehin tippt
+#
+# Ueber den Agenten schreiben kann man jetzt in ganzen Saetzen, ohne dass er
+# anspringt.
 on:
   issue_comment:
     types: [created]
   pull_request_review_comment:
     types: [created]
   issues:
-    types: [opened]
+    types: [opened, labeled]
 
 jobs:
   claude:
-    if: contains(github.event.comment.body || github.event.issue.body, '@claude')
+    if: >
+      (github.event_name == 'issues' && github.event.action == 'labeled'
+       && github.event.label.name == 'agent:bauen')
+      || contains(github.event.comment.body || github.event.issue.body, '/bau')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -27,6 +43,11 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Muss zur Bedingung oben passen. Stehen die auseinander, startet
+          # der Job und die Action tut nichts — ein gruener Lauf ohne Wirkung,
+          # also genau das Muster aus #7 und #9.
+          trigger_phrase: "/bau"
+          label_trigger: "agent:bauen"
           claude_args: |
             # 25 waren zu wenig: Ein Ticket der Groesse S (eine Funktion,
             # vier Tests) brauchte 27 Turns. Die Action wertet das Ueber-

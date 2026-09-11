@@ -29,6 +29,9 @@ anlegen "art:frage"           "6B4FA8" "Klaerungsbedarf beim Kunden"
 anlegen "art:pruefung"        "7A6BA8" "Betriebspruefung — ein Mensch fuehrt aus und schliesst, kein PR"
 anlegen "lagebericht"         "3D4B48" "Automatisch erzeugte Wochenuebersicht"
 
+echo "Auslöser"
+anlegen "agent:bauen"        "0E7C6B" "Anheften startet den Agenten (Gate G2 vorher setzen!)"
+
 echo "Groesse"
 anlegen "groesse:S"           "D8E0DD" "unter einem halben Tag"
 anlegen "groesse:M"           "B9C6C2" "ein bis zwei Tage"
