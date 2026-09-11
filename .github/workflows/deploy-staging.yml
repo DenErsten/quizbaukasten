@@ -1,0 +1,55 @@
+name: Deploy Staging
+
+# Jeder Merge auf main geht sofort auf Staging. Das ist Absicht: Wenn die KI
+# über Code entscheidet, muss das Ergebnis sichtbar sein, sonst entscheidet
+# sie ins Leere. Staging ist die Umgebung, in der ein Fehler nichts kostet.
+#
+# Produktion ist ein anderer Workflow und ein anderer Knopf.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: staging
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build --if-present
+
+      # An euren Hoster anpassen. Für das Camp reicht alles, was eine URL
+      # ergibt, die der gespielte Kunde öffnen kann.
+      - name: Ausliefern
+        run: |
+          echo "Hier den Deploy-Befehl eintragen."
+          echo "Commit: ${{ github.sha }}"
+
+      - name: Rauchtest
+        run: |
+          # Ein Aufruf, der beweist, dass die Anwendung läuft. Ohne ihn ist
+          # "deployed" nur eine Behauptung des Deploy-Skripts.
+          if [ -n "${{ vars.STAGING_URL }}" ]; then
+            curl -fsS --retry 5 --retry-delay 4 --retry-all-errors \
+              "${{ vars.STAGING_URL }}" > /dev/null
+            echo "Staging antwortet."
+          else
+            echo "STAGING_URL nicht gesetzt — Rauchtest übersprungen."
+          fi

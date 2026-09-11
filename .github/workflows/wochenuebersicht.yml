@@ -1,0 +1,44 @@
+name: Wochenübersicht
+
+# Montags 07:00 Europe/Berlin. Cron läuft in UTC — im Winter 06:00 UTC,
+# im Sommer 05:00 UTC. Wir nehmen 05:00 UTC und leben mit einer Stunde Drift,
+# statt zweimal im Jahr die Datei anzufassen.
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+jobs:
+  lagebericht:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Lies docs/plan.md, die offenen Issues und die Milestones dieses Repos.
+            Erstelle ein neues Issue mit dem Titel "Lagebericht KW <Kalenderwoche>"
+            und dem Label "lagebericht".
+
+            Aufbau, genau so:
+            1. Ampel je Meilenstein: gruen / gelb / rot, mit einem Satz Begruendung.
+            2. Was seit letzter Woche fertig wurde (geschlossene Issues).
+            3. Faellige Zusagen aus docs/meetings/, die noch offen sind.
+            4. Was diese Woche dran ist — hoechstens fuenf Punkte.
+            5. Entscheidungen, die du von Firat brauchst — als Frage mit zwei Optionen.
+
+            Erfinde nichts. Wenn eine Information fehlt, schreib "unbekannt"
+            und nenne die Datei, in der sie stehen muesste.
+            Schreibe auf Deutsch.
+          claude_args: |
+            --max-turns 20
+            --allowedTools "mcp__github__list_issues,mcp__github__list_milestones,mcp__github__create_issue,mcp__github__search_issues,Read,Glob,Grep"

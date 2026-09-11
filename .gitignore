@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+
+# Urteile der Prüf-Agenten — entstehen im CI-Lauf, gehören nicht ins Repo
+urteil.json
+abnahme.json
+
+# Aufnahmen und Transkripte bleiben lokal.
+# Kundengespräche gehören nicht in ein Git-Repo, auch nicht in ein privates.
+aufnahmen/*
+!aufnahmen/.gitkeep
+
+# Mailentwürfe, falls der Thunderbird-Anschluss mal klemmt
+docs/mailentwuerfe/*
+!docs/mailentwuerfe/.gitkeep

@@ -1,0 +1,43 @@
+name: Plan-Abgleich
+
+# Freitags 13:00 Europe/Berlin (11:00 UTC). Prüft Plan gegen Realität und
+# öffnet einen PR, wenn etwas kippt. Ändert nie still den Plan.
+on:
+  schedule:
+    - cron: "0 11 * * 5"
+  workflow_dispatch:
+
+jobs:
+  abgleich:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Vergleiche docs/plan.md mit dem tatsaechlichen Zustand: offene und
+            geschlossene Issues je Milestone, Faelligkeitsdaten, gemergte PRs.
+
+            Wenn ein Meilenstein sein Ziel voraussichtlich reisst, oder eine
+            Annahme (Abschnitt "Annahmen") durch die Arbeit widerlegt wurde:
+            Ergaenze in docs/plan.md eine Zeile in der Tabelle "Abweichungen"
+            mit Ursache und genau zwei Optionen, oeffne einen Branch
+            plan/abgleich-<datum> und einen Pull Request dazu.
+
+            Titel des PR: "Planabweichung: <ein Satz>".
+            Im PR-Text stehen nur Fakten und die zwei Optionen, keine Empfehlung.
+
+            Wenn nichts abweicht: oeffne keinen PR, schreibe nur ins Log
+            "Plan und Realitaet decken sich."
+            Aendere niemals Meilenstein-Termine direkt. Schreibe auf Deutsch.
+          claude_args: |
+            --max-turns 25
+            --model claude-sonnet-5

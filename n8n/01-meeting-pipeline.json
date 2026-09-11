@@ -1,0 +1,217 @@
+{
+  "name": "01 Meeting-Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "triggerOn": "folder",
+        "path": "/pfad/zum/repo/aufnahmen",
+        "events": ["add"],
+        "options": {
+          "usePolling": true,
+          "awaitWriteFinish": true
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Neue Aufnahme",
+      "type": "n8n-nodes-base.localFileTrigger",
+      "typeVersion": 1,
+      "position": [-260, 300]
+    },
+    {
+      "parameters": {
+        "command": "cd /pfad/zum/repo && ./scripts/transkribieren.sh \"{{ $json.path }}\" de 2>&1"
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Transkribieren",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [-40, 300],
+      "notes": "Läuft lokal. Bei einem 30-Minuten-Gespräch dauert das ein paar Minuten — Timeout in den Node-Settings hochsetzen."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pfad des Transkripts ableiten und ein paar Kennzahlen ziehen,\n// damit die Freigabefrage im Telegram etwas hergibt.\nconst pfad = $('Neue Aufnahme').first().json.path;\nconst transkript = pfad.replace(/\\.[^.]+$/, '.transkript.md');\nconst log = $input.first().json.stdout || '';\n\nconst fs = require('fs');\nlet zeichen = 0;\nlet sprecher = 0;\ntry {\n  const text = fs.readFileSync(transkript, 'utf8');\n  zeichen = text.length;\n  sprecher = new Set(text.match(/SPEAKER_\\d+/g) || []).size;\n} catch (e) {\n  // Datei noch nicht da — dann fällt die IF unten auf false\n}\n\nreturn [{ json: { audio: pfad, transkript, zeichen, sprecher, log } }];"
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Kennzahlen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [180, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              },
+              "leftValue": "={{ $json.zeichen }}",
+              "rightValue": 200
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Transkript brauchbar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "message": "=Transkript liegt vor.\n\nDatei: {{ $json.audio.split('/').pop() }}\nUmfang: {{ Math.round($json.zeichen / 1000) }}k Zeichen, {{ $json.sprecher }} Sprecher erkannt\n\nProtokoll, Draft-Issues und Mailentwurf jetzt bauen?",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double",
+            "buttonApprovalLabel": "Bauen",
+            "buttonDisapprovalLabel": "Abbrechen"
+          }
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Freigabe: Protokoll bauen",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [620, 200],
+      "webhookId": "b2000000-0000-4000-8000-000000000005",
+      "notes": "Das ist bewusst nur die Freigabe für den AUTOMATISIERUNGSSCHRITT, nicht für den Inhalt. Der Inhalt wird im GitHub-PR freigegeben."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "Freigegeben?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [840, 200]
+    },
+    {
+      "parameters": {
+        "command": "=cd /pfad/zum/repo && claude -p \"/meeting-nacharbeit {{ $('Kennzahlen').first().json.transkript }}\" --output-format json --max-turns 40 2>&1"
+      },
+      "id": "a1000000-0000-4000-8000-000000000007",
+      "name": "Nacharbeit durch den Agenten",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1060, 100],
+      "notes": "Nutzt die Anmeldung des Abos über die CLI, keinen API-Key. Der Agent legt PR und Draft-Issues an — nichts davon ist damit freigegeben."
+    },
+    {
+      "parameters": {
+        "command": "cd /pfad/zum/repo && gh pr list --limit 1 --json number,title,url --jq '.[0]'"
+      },
+      "id": "a1000000-0000-4000-8000-000000000008",
+      "name": "PR nachschlagen",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1280, 100]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "=Nacharbeit fertig. Jetzt bist du dran:\n\n{{ JSON.parse($json.stdout).url }}\n\nIm PR liegen Protokoll und die angelegten Draft-Issues. Nichts ist freigegeben — status:freigegeben setzt du am Rechner.",
+        "additionalFields": {
+          "disable_web_page_preview": false
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000009",
+      "name": "PR melden",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1500, 100]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "=Abgebrochen. Transkript liegt trotzdem unter {{ $('Kennzahlen').first().json.transkript }} — nichts geht verloren.",
+        "additionalFields": {}
+      },
+      "id": "a1000000-0000-4000-8000-00000000000a",
+      "name": "Abbruch melden",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1060, 300]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "=Transkription hat kaum Text ergeben — vermutlich stummes oder zu leises Material.\n\nDatei: {{ $json.audio }}\nLog:\n{{ ($json.log || '').slice(0, 500) }}",
+        "additionalFields": {}
+      },
+      "id": "a1000000-0000-4000-8000-00000000000b",
+      "name": "Transkription gescheitert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [620, 440]
+    }
+  ],
+  "connections": {
+    "Neue Aufnahme": {
+      "main": [[{ "node": "Transkribieren", "type": "main", "index": 0 }]]
+    },
+    "Transkribieren": {
+      "main": [[{ "node": "Kennzahlen", "type": "main", "index": 0 }]]
+    },
+    "Kennzahlen": {
+      "main": [[{ "node": "Transkript brauchbar?", "type": "main", "index": 0 }]]
+    },
+    "Transkript brauchbar?": {
+      "main": [
+        [{ "node": "Freigabe: Protokoll bauen", "type": "main", "index": 0 }],
+        [{ "node": "Transkription gescheitert", "type": "main", "index": 0 }]
+      ]
+    },
+    "Freigabe: Protokoll bauen": {
+      "main": [[{ "node": "Freigegeben?", "type": "main", "index": 0 }]]
+    },
+    "Freigegeben?": {
+      "main": [
+        [{ "node": "Nacharbeit durch den Agenten", "type": "main", "index": 0 }],
+        [{ "node": "Abbruch melden", "type": "main", "index": 0 }]
+      ]
+    },
+    "Nacharbeit durch den Agenten": {
+      "main": [[{ "node": "PR nachschlagen", "type": "main", "index": 0 }]]
+    },
+    "PR nachschlagen": {
+      "main": [[{ "node": "PR melden", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true
+  },
+  "pinData": {}
+}

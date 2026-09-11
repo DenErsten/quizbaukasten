@@ -1,0 +1,7 @@
+# GitHub-Logins, deren Freigabe zählt. Ein Login pro Zeile.
+#
+# Diese Liste ist die Definition von "Mensch" in diesem Repo. Sie steht selbst
+# unter den geschützten Pfaden — sonst könnte sich der Agent eintragen.
+#
+# Beim Aufsetzen anpassen:
+DenErsten

@@ -1,0 +1,226 @@
+name: PR-Prüfung
+
+# Vier Gates vor jedem Merge. Alle vier sind Required Status Checks auf main
+# (siehe scripts/setup-repo.sh) — was hier rot ist, wird nicht gemergt,
+# auch nicht von einem Admin.
+#
+#   pfade    — fasst der PR die Leitplanken an?
+#   pruefen  — halten Tests, Typen und Build?
+#   review   — was sagt ein zweiter Agent mit anderer Rolle?
+#   abnahme  — ist das Abnahmekriterium des Issues nachweislich erfüllt?
+#
+# Der letzte Job schaltet Auto-Merge frei. Mergen tut GitHub selbst, erst
+# wenn alle vier grün sind. Der Agent kann das nicht abkürzen: er hat
+# Contents- und PR-Rechte, aber keine Administration-Rechte.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  id-token: write
+
+jobs:
+  # ---------------------------------------------------------------- 1
+  pfade:
+    name: pfade
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Geschützte Pfade prüfen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NR: ${{ github.event.pull_request.number }}
+        run: |
+          gh pr diff "$NR" --name-only > /tmp/geaendert.txt
+          gh pr view "$NR" --json reviews,files > /tmp/pr.json
+          python3 scripts/pfad_pruefung.py \
+            --geaendert /tmp/geaendert.txt \
+            --pr /tmp/pr.json | tee /tmp/bericht.txt
+        continue-on-error: true
+        id: pruefung
+
+      - name: Ergebnis melden und durchreichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NR: ${{ github.event.pull_request.number }}
+        run: |
+          cat /tmp/bericht.txt >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.pruefung.outcome }}" = "failure" ]; then
+            # Nur einmal kommentieren, nicht bei jedem Push erneut.
+            if ! gh pr view "$NR" --json comments \
+                 --jq '.comments[].body' | grep -q "Pfad-Wächter"; then
+              {
+                echo "**Pfad-Wächter:** Dieser PR ändert Dateien, die festlegen,"
+                echo "wie die KI entscheidet. Merge bleibt blockiert, bis ein Mensch"
+                echo "aus \`scripts/menschen.txt\` den PR freigibt."
+                echo
+                echo '```'
+                cat /tmp/bericht.txt
+                echo '```'
+              } | gh pr comment "$NR" --body-file -
+            fi
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------- 2
+  pruefen:
+    name: pruefen
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      # An euer Projekt anpassen. Diese Datei ist selbst ein geschützter Pfad —
+      # der Agent kann die Prüfung also nicht wegkürzen, um grün zu werden.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # npm ci braucht eine Lockdatei. Die entsteht beim ersten `npm install`
+      # auf deinem Rechner — solange sie fehlt, weichen wir aus, damit der
+      # allererste PR nicht an einer Formalie scheitert.
+      - run: npm ci || npm install
+      - run: npm run typecheck
+      - run: npm run lint --if-present
+      - run: npm test
+      - run: npm run build
+
+  # ---------------------------------------------------------------- 3
+  review:
+    name: review
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Du bist NICHT der Agent, der diesen Code geschrieben hat. Du bist
+            der Pruefer. Deine Aufgabe ist es, Gruende zu finden, diesen PR
+            NICHT zu mergen — nicht, ihn durchzuwinken.
+
+            Lies den Diff mit: gh pr diff ${{ github.event.pull_request.number }}
+            Lies CLAUDE.md und das verlinkte Issue.
+
+            Blockiere, wenn eines davon zutrifft:
+            - Der Code tut etwas anderes als das Issue verlangt
+            - Ein bestehender Test wurde entschaerft, uebersprungen oder entfernt
+            - Fehler werden verschluckt (leeres catch, ignorierter Rueckgabewert)
+            - Geheimnisse, Zugangsdaten oder Endpunkte stehen im Klartext
+            - Eine Migration oder Loeschung ist nicht umkehrbar
+            - Der Diff enthaelt Aenderungen, die mit dem Issue nichts zu tun haben
+
+            Kleinigkeiten (Stil, Benennung, Formulierung) blockieren nicht.
+            Schreibe sie als Kommentar, aber urteile "frei".
+
+            Schreibe zum Schluss die Datei urteil.json, genau so:
+            {"urteil": "frei" oder "blockiert", "grund": "ein Satz",
+             "befunde": ["..."]}
+          claude_args: |
+            --max-turns 30
+            --model claude-sonnet-5
+            --allowedTools "Read,Glob,Grep,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*),Bash(git log:*),Bash(git diff:*)"
+
+      - name: Urteil auswerten
+        run: |
+          if [ ! -f urteil.json ]; then
+            echo "::error::Der Prüfer hat kein Urteil hinterlassen. Im Zweifel blockiert."
+            exit 1
+          fi
+          cat urteil.json >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open("urteil.json"))
+          print(f"Urteil: {d.get('urteil')} — {d.get('grund','')}")
+          for b in d.get("befunde", []):
+              print(f"  - {b}")
+          sys.exit(0 if d.get("urteil") == "frei" else 1)
+          PY
+
+  # ---------------------------------------------------------------- 4
+  abnahme:
+    name: abnahme
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Pruefe ausschliesslich eines: Erfuellt dieser PR das Abnahme-
+            kriterium des verlinkten Issues — den Abschnitt "Fertig, wenn …"?
+
+            Finde das Issue ueber den PR-Text (Refs, Closes, Fixes).
+            Gibt es kein verlinktes Issue: blockieren, Grund
+            "kein Issue verlinkt".
+            Hat das Issue kein Abnahmekriterium: blockieren, Grund
+            "Issue ohne Abnahmekriterium".
+            Traegt das Issue nicht das Label status:freigegeben: blockieren,
+            Grund "Issue nicht freigegeben" — das ist Gate G2 und bleibt beim
+            Menschen.
+
+            Sonst: Weise am Diff nach, wo das Kriterium erfuellt wird — welche
+            Datei, welche Zeile, welcher Test deckt es ab. Findest du keinen
+            Nachweis, blockierst du. "Sieht plausibel aus" ist kein Nachweis.
+
+            Schreibe die Datei abnahme.json:
+            {"urteil": "frei" oder "blockiert", "issue": <nummer oder null>,
+             "kriterium": "…", "nachweis": "…", "grund": "…"}
+          claude_args: |
+            --max-turns 25
+            --model claude-sonnet-5
+            --allowedTools "Read,Glob,Grep,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*)"
+
+      - name: Urteil auswerten
+        run: |
+          if [ ! -f abnahme.json ]; then
+            echo "::error::Kein Abnahmeurteil hinterlassen. Im Zweifel blockiert."
+            exit 1
+          fi
+          cat abnahme.json >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open("abnahme.json"))
+          print(f"Issue:     #{d.get('issue')}")
+          print(f"Kriterium: {d.get('kriterium','')}")
+          print(f"Nachweis:  {d.get('nachweis','')}")
+          print(f"Urteil:    {d.get('urteil')} — {d.get('grund','')}")
+          sys.exit(0 if d.get("urteil") == "frei" else 1)
+          PY
+
+  # ---------------------------------------------------------------- 5
+  freischalten:
+    name: auto-merge freischalten
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Auto-Merge einschalten
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NR: ${{ github.event.pull_request.number }}
+        run: |
+          # Schaltet nur die Absicht frei. Gemergt wird erst, wenn pfade,
+          # pruefen, review und abnahme gruen sind — das entscheidet GitHub,
+          # nicht dieser Job und nicht der Agent.
+          gh pr merge "$NR" --auto --squash --delete-branch \
+            || echo "Auto-Merge nicht aktivierbar (Draft, Konflikt oder bereits gesetzt)."

@@ -1,0 +1,65 @@
+name: Deploy Produktion
+
+# Gate G4 in seiner nativen Form. Die Umgebung "produktion" hat in den
+# Repo-Einstellungen einen Required Reviewer — GitHub hält den Job an und
+# wartet auf einen Menschen. Kein Skript, keine Konvention, keine Disziplin:
+# der Job steht einfach, bis jemand auf "Approve deployment" klickt.
+#
+# Einmalig einrichten: Settings → Environments → produktion
+#   → Required reviewers: dein Konto
+#   → Deployment branches: nur main
+# Oder per scripts/setup-repo.sh.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      grund:
+        description: "Warum wird jetzt ausgeliefert?"
+        required: true
+        type: string
+
+concurrency:
+  group: produktion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: produktion
+      url: ${{ vars.PRODUKTION_URL }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Was geht raus
+        run: |
+          echo "Commit: ${{ github.sha }}"
+          echo "Anlass: ${{ github.event.inputs.grund || github.event.release.tag_name }}"
+          echo "Vorheriger Stand für ein Rollback:"
+          git log --oneline -5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build --if-present
+
+      - name: Ausliefern
+        run: |
+          echo "Hier den Produktions-Deploy eintragen."
+
+      - name: Rauchtest
+        run: |
+          if [ -n "${{ vars.PRODUKTION_URL }}" ]; then
+            curl -fsS --retry 5 --retry-delay 5 --retry-all-errors \
+              "${{ vars.PRODUKTION_URL }}" > /dev/null
+            echo "Produktion antwortet."
+          fi

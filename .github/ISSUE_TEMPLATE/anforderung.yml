@@ -1,0 +1,44 @@
+name: Anforderung
+description: Etwas, das gebaut werden soll
+labels: ["status:vorschlag", "art:anforderung"]
+body:
+  - type: textarea
+    id: kontext
+    attributes:
+      label: Kontext
+      description: Ein Satz. Woher kommt das — Meeting, Mail, Plan?
+      placeholder: "Aus dem Kick-off vom 12.03. — Bettina will Touren duplizieren können."
+    validations:
+      required: true
+
+  - type: textarea
+    id: abnahme
+    attributes:
+      label: Fertig, wenn …
+      description: Prüfbar formuliert. Wenn du es nicht formulieren kannst, weißt du zu wenig.
+      placeholder: "… ein Disponent eine bestehende Tour kopieren und das Datum ändern kann."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: groesse
+    attributes:
+      label: Größenordnung
+      options:
+        - "S — unter einem halben Tag"
+        - "M — ein bis zwei Tage"
+        - "L — mehr, muss geschnitten werden"
+    validations:
+      required: true
+
+  - type: input
+    id: meilenstein
+    attributes:
+      label: Meilenstein
+      placeholder: "M1"
+
+  - type: textarea
+    id: offen
+    attributes:
+      label: Offene Fragen
+      description: Lieber hier als eine Vermutung oben.

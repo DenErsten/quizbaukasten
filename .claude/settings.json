@@ -1,0 +1,70 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit",
+      "Write",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git checkout -b:*)",
+      "Bash(git switch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push origin HEAD:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh issue comment:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr merge * --auto --squash:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh release create --draft:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run:*)",
+      "Bash(npm ci:*)"
+    ],
+    "deny": [
+      "Bash(git push origin main:*)",
+      "Bash(git push --force:*)",
+      "Bash(gh pr merge * --admin:*)",
+      "Bash(gh pr merge --admin:*)",
+      "Bash(gh api * -X PUT */branches/*:*)",
+      "Bash(gh api * -X DELETE:*)",
+      "Bash(gh label:*)",
+      "Bash(gh release edit:*)",
+      "Bash(gh workflow disable:*)",
+      "Bash(gh secret:*)",
+      "Bash(gh variable:*)",
+      "Edit(./CLAUDE.md)",
+      "Edit(./.claude/**)",
+      "Edit(./.github/workflows/**)",
+      "Edit(./.github/geschuetzte-pfade.txt)",
+      "Edit(./scripts/menschen.txt)",
+      "Read(./.env)",
+      "Read(./**/*.pem)",
+      "Read(./secrets/**)"
+    ],
+    "ask": [
+      "Bash(gh api:*)",
+      "Bash(npm install:*)",
+      "Bash(pip install:*)"
+    ]
+  },
+  "_hinweis": [
+    "Diese Datei bremst den lokalen Agenten. Sie ist die erste Verteidigungs-",
+    "linie, nicht die letzte: sie liegt im Repo und laesst sich umschreiben.",
+    "Deshalb steht .claude/** selbst unter den geschuetzten Pfaden, und",
+    "deshalb entscheidet ueber einen Merge nicht diese Datei, sondern die",
+    "vier Required Checks in .github/workflows/pr-pruefung.yml. Eine Regel,",
+    "die der Geregelte aendern kann, ist eine Bitte."
+  ]
+}

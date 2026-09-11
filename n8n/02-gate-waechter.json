@@ -1,0 +1,233 @@
+{
+  "name": "02 Gate-Wächter",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gate-waechter",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "c1000000-0000-4000-8000-000000000001",
+      "name": "GitHub-Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-300, 300],
+      "webhookId": "d2000000-0000-4000-8000-000000000001",
+      "notes": "Repo → Settings → Webhooks. Events: Issues UND Pull requests. Secret setzen."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Zwei Dinge bewacht dieser Workflow, seit die KI selbst mergen darf:\n//\n//   1. status:freigegeben — Gate G2, das setzt nur ein Mensch\n//   2. gemergte PRs auf geschuetzte Pfade — der Selbstumbau\n//\n// Punkt 2 ist bewusst doppelt: der Check 'pfade' in pr-pruefung.yml sollte\n// das schon verhindern. Genau deshalb steht er hier noch einmal. Wenn hier\n// je Alarm ausgeloest wird, ist nicht der PR das Problem, sondern dass der\n// Check umgangen werden konnte.\n\nconst b = $input.first().json.body || $input.first().json;\n\n// Muss zu scripts/menschen.txt passen.\nconst MENSCHEN = ['firat-keskin'];\n\nconst akteur = b.sender?.login || 'unbekannt';\nconst akteurTyp = b.sender?.type || 'unbekannt';\nconst istMensch = akteurTyp === 'User' && MENSCHEN.includes(akteur);\nconst repo = b.repository?.full_name || '';\n\nconst leer = {\n  verstoss: false, art: 'ignoriert', akteur, akteurTyp, repo,\n  nummer: null, titel: '', url: '', text: ''\n};\n\n// --- Fall 1: jemand hat status:freigegeben gesetzt ---\nif (b.action === 'labeled' && b.label?.name === 'status:freigegeben') {\n  return [{ json: {\n    ...leer,\n    art: 'label',\n    verstoss: !istMensch,\n    nummer: b.issue?.number,\n    titel: b.issue?.title || '',\n    url: b.issue?.html_url || '',\n    text: 'status:freigegeben wurde nicht von einem Menschen gesetzt. Label wird zurueckgenommen.'\n  }}];\n}\n\n// --- Fall 2: ein PR wurde gemergt ---\n// Der Webhook liefert keine Dateiliste mit. Der naechste Node holt sie ueber\n// die API nach; hier wird nur entschieden, ob es sich lohnt hinzuschauen.\nif (b.action === 'closed' && b.pull_request?.merged === true) {\n  return [{ json: {\n    ...leer,\n    art: 'merge',\n    verstoss: false,\n    pruefen: true,\n    nummer: b.pull_request.number,\n    titel: b.pull_request.title || '',\n    url: b.pull_request.html_url || '',\n    merger: b.pull_request.merged_by?.login || akteur\n  }}];\n}\n\nreturn [{ json: leer }];"
+      },
+      "id": "c1000000-0000-4000-8000-000000000002",
+      "name": "Ereignis einordnen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-80, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "version": 2 },
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "operator": { "type": "string", "operation": "equals" },
+                    "leftValue": "={{ $json.art }}",
+                    "rightValue": "label"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "outputKey": "label"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "version": 2 },
+                "conditions": [
+                  {
+                    "id": "r2",
+                    "operator": { "type": "string", "operation": "equals" },
+                    "leftValue": "={{ $json.art }}",
+                    "rightValue": "merge"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "outputKey": "merge"
+            }
+          ]
+        },
+        "options": { "fallbackOutput": "none" }
+      },
+      "id": "c1000000-0000-4000-8000-000000000003",
+      "name": "Welcher Fall",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [160, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "version": 2 },
+          "conditions": [
+            {
+              "id": "v1",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true },
+              "leftValue": "={{ $json.verstoss }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c1000000-0000-4000-8000-000000000004",
+      "name": "Label-Verstoß?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [400, 160]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=https://api.github.com/repos/{{ $json.repo }}/issues/{{ $json.nummer }}/labels/status:freigegeben",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "c1000000-0000-4000-8000-000000000005",
+      "name": "Label zurücknehmen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [640, 80],
+      "notes": "Header-Auth mit einem GitHub-Token, das NICHT der Agent benutzt. Sonst wacht der Wächter mit den Händen des Bewachten."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.github.com/repos/{{ $('Ereignis einordnen').first().json.repo }}/issues/{{ $('Ereignis einordnen').first().json.nummer }}/comments",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ body: 'Gate-Wächter: `status:freigegeben` wurde von `' + $('Ereignis einordnen').first().json.akteur + '` (' + $('Ereignis einordnen').first().json.akteurTyp + ') gesetzt und automatisch zurückgenommen. Gate G2 gibt nur ein Mensch frei — auch in einem Setup, in dem die KI Code selbst mergt.' }) }}",
+        "options": {}
+      },
+      "id": "c1000000-0000-4000-8000-000000000006",
+      "name": "Im Issue vermerken",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 80]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/{{ $json.repo }}/pulls/{{ $json.nummer }}/files?per_page=100",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "c1000000-0000-4000-8000-000000000007",
+      "name": "Geänderte Dateien holen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Nachtraeglich pruefen, ob ein gemergter PR geschuetzte Pfade angefasst hat.\n// Muss zu .github/geschuetzte-pfade.txt passen.\nconst GESCHUETZT = [\n  /^CLAUDE\\.md$/,\n  /^\\.claude\\//,\n  /^\\.github\\/workflows\\//,\n  /^\\.github\\/geschuetzte-pfade\\.txt$/,\n  /^scripts\\/menschen\\.txt$/,\n  /^docs\\/(plan|kunde)\\.md$/,\n  /^tests?\\//,\n  /(^|\\/)(package(-lock)?\\.json|pyproject\\.toml|requirements\\.txt|Dockerfile)$/\n];\n\nconst kopf = $('Ereignis einordnen').first().json;\nconst dateien = $input.all().map(i => i.json.filename).filter(Boolean);\nconst betroffen = dateien.filter(d => GESCHUETZT.some(r => r.test(d)));\n\nreturn [{ json: {\n  ...kopf,\n  dateien: dateien.length,\n  betroffen,\n  verstoss: betroffen.length > 0,\n  text: betroffen.length\n    ? 'Ein gemergter PR hat geschuetzte Pfade veraendert. Der Check \"pfade\" haette das anhalten muessen — pruefe, ob er als Required Status Check auf main eingetragen ist.'\n    : ''\n}}];"
+      },
+      "id": "c1000000-0000-4000-8000-000000000008",
+      "name": "Pfade nachprüfen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 420]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "version": 2 },
+          "conditions": [
+            {
+              "id": "v2",
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true },
+              "leftValue": "={{ $json.verstoss }}",
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c1000000-0000-4000-8000-000000000009",
+      "name": "Merge-Verstoß?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [880, 420]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "=GATE-VERSTOSS ({{ $json.art }})\n\n{{ $json.text }}\n\nAkteur: {{ $json.akteur }} ({{ $json.akteurTyp }})\n#{{ $json.nummer }} — {{ $json.titel }}\n{{ $json.betroffen ? '\\nBetroffene Pfade:\\n' + $json.betroffen.join('\\n') : '' }}\n\n{{ $json.url }}",
+        "additionalFields": {}
+      },
+      "id": "c1000000-0000-4000-8000-00000000000a",
+      "name": "Alarm",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1120, 240]
+    },
+    {
+      "parameters": {},
+      "id": "c1000000-0000-4000-8000-00000000000b",
+      "name": "Alles in Ordnung",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1120, 560]
+    }
+  ],
+  "connections": {
+    "GitHub-Webhook": {
+      "main": [[{ "node": "Ereignis einordnen", "type": "main", "index": 0 }]]
+    },
+    "Ereignis einordnen": {
+      "main": [[{ "node": "Welcher Fall", "type": "main", "index": 0 }]]
+    },
+    "Welcher Fall": {
+      "main": [
+        [{ "node": "Label-Verstoß?", "type": "main", "index": 0 }],
+        [{ "node": "Geänderte Dateien holen", "type": "main", "index": 0 }]
+      ]
+    },
+    "Label-Verstoß?": {
+      "main": [
+        [{ "node": "Label zurücknehmen", "type": "main", "index": 0 }],
+        [{ "node": "Alles in Ordnung", "type": "main", "index": 0 }]
+      ]
+    },
+    "Label zurücknehmen": {
+      "main": [[{ "node": "Im Issue vermerken", "type": "main", "index": 0 }]]
+    },
+    "Im Issue vermerken": {
+      "main": [[{ "node": "Alarm", "type": "main", "index": 0 }]]
+    },
+    "Geänderte Dateien holen": {
+      "main": [[{ "node": "Pfade nachprüfen", "type": "main", "index": 0 }]]
+    },
+    "Pfade nachprüfen": {
+      "main": [[{ "node": "Merge-Verstoß?", "type": "main", "index": 0 }]]
+    },
+    "Merge-Verstoß?": {
+      "main": [
+        [{ "node": "Alarm", "type": "main", "index": 0 }],
+        [{ "node": "Alles in Ordnung", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

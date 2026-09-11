@@ -1,0 +1,51 @@
+# Geschützte Pfade
+#
+# Die KI entscheidet über Code. Sie entscheidet nicht über die Regeln, nach
+# denen sie über Code entscheidet. Alles hier drin darf sie ändern — aber ein
+# PR, der eine dieser Dateien anfasst, wird erst nach Freigabe durch einen
+# Menschen aus scripts/menschen.txt gemergt.
+#
+# Ein Muster pro Zeile, Syntax wie .gitignore-Globs.
+# Leerzeilen und Zeilen mit # werden ignoriert.
+
+# --- Die Leitplanken selbst ---
+CLAUDE.md
+.claude/**
+.github/workflows/**
+.github/geschuetzte-pfade.txt
+.github/ISSUE_TEMPLATE/**
+scripts/menschen.txt
+
+# --- Der Plan und die Kundenwahrheit ---
+docs/plan.md
+docs/kunde.md
+docs/angebote/**
+
+# --- Tests: das Netz darf nicht der reparieren, der hineinfällt ---
+# Das häufigste stille Versagen autonomer Agenten ist der geloeschte Test,
+# der den Build wieder grün macht. Neue Tests hinzufügen darf die KI frei;
+# hier greift der Wächter nur, weil er Änderung nicht von Löschung
+# unterscheiden kann — siehe scripts/pfad_pruefung.py, Abschnitt "nur-neu".
+tests/**
+test/**
+**/*_test.*
+**/*.test.*
+**/*.spec.*
+
+# --- Abhängigkeiten und Lieferkette ---
+package.json
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+requirements.txt
+pyproject.toml
+poetry.lock
+uv.lock
+Dockerfile
+docker-compose.yml
+
+# --- Infrastruktur und Geheimnisse ---
+infra/**
+terraform/**
+*.tf
+.env.example

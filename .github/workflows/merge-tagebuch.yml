@@ -1,0 +1,59 @@
+name: Merge-Tagebuch
+
+# Wenn niemand die Diffs liest, muss wenigstens jemand die Summe sehen.
+#
+# Autonomes Mergen scheitert selten an einem schlechten PR. Es scheitert an
+# zwanzig unauffälligen PRs, nach denen das Projekt woanders steht, als man
+# dachte. Dieser Lauf ist das Gegenmittel: einmal am Tag drei Minuten lesen.
+#
+# Werktags 18:00 Europe/Berlin (16:00 UTC, im Winter 17:00 — eine Stunde
+# Drift ist billiger als zweimal im Jahr diese Datei anzufassen).
+
+on:
+  schedule:
+    - cron: "0 16 * * 1-5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+  id-token: write
+
+jobs:
+  tagebuch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Sieh dir an, was in den letzten 24 Stunden auf main gelandet ist:
+            gemergte Pull Requests, ihre Diffs, die verlinkten Issues.
+
+            Lege ein Issue an mit Titel "Merge-Tagebuch <Datum>" und Label
+            "lagebericht". Aufbau:
+
+            1. Eine Zeile je gemergtem PR: was kann der Nutzer jetzt, was
+               vorher nicht ging. Nicht was geaendert wurde — was jetzt geht.
+            2. Was sich an der Form des Projekts geaendert hat: neue
+               Abhaengigkeit, neues Modul, neues Muster, geaenderte
+               Datenstruktur. Genau hier faellt auf, wenn das Projekt in eine
+               Richtung driftet, die niemand entschieden hat.
+            3. Was auffaellt: ein PR ohne Issue, ein sehr grosser Diff, ein
+               Abnahmenachweis, der duenn wirkt, zwei PRs, die dasselbe
+               anfassen.
+            4. Falls nichts gemergt wurde: sag das in einem Satz und hoer auf.
+
+            Bewerte den Code nicht neu — das hat der Pruefer getan. Deine
+            Aufgabe ist die Summe, nicht der Einzelfall.
+            Erfinde nichts. Schreibe auf Deutsch, hoechstens 300 Woerter.
+          claude_args: |
+            --max-turns 25
+            --model claude-sonnet-5
+            --allowedTools "Read,Glob,Grep,Bash(git log:*),Bash(git diff:*),Bash(gh pr list:*),Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh issue view:*),Bash(gh issue create:*)"
