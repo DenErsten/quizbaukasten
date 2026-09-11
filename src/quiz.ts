@@ -101,6 +101,46 @@ function pruefeEntwurf(e: FrageEntwurf): void {
   }
 }
 
+/**
+ * Verschiebt eine Frage innerhalb ihrer Runde an eine andere Position.
+ *
+ * Die Kennungen der Fragen bleiben unverändert — eine Frage-ID ist ein
+ * Name, keine Position. Nur die Reihenfolge in der Liste ändert sich.
+ */
+export function frageVerschieben(
+  quiz: Quiz,
+  rundenId: string,
+  vonIndex: number,
+  nachIndex: number,
+): Quiz {
+  const index = quiz.runden.findIndex((r) => r.id === rundenId);
+  if (index === -1) {
+    throw new QuizFehler(`Runde "${rundenId}" gibt es in diesem Quiz nicht.`);
+  }
+  const runde = quiz.runden[index];
+  const anzahl = runde.fragen.length;
+  if (
+    !Number.isInteger(vonIndex) ||
+    !Number.isInteger(nachIndex) ||
+    vonIndex < 0 ||
+    vonIndex >= anzahl ||
+    nachIndex < 0 ||
+    nachIndex >= anzahl
+  ) {
+    throw new QuizFehler(
+      `Index außerhalb der Liste: ${vonIndex} -> ${nachIndex} (Runde hat ${anzahl} Fragen).`,
+    );
+  }
+
+  const fragen = [...runde.fragen];
+  const [frage] = fragen.splice(vonIndex, 1);
+  fragen.splice(nachIndex, 0, frage);
+  const neueRunde: Runde = { ...runde, fragen };
+  const runden = [...quiz.runden];
+  runden[index] = neueRunde;
+  return { ...quiz, runden };
+}
+
 /** Wie viele Punkte im ganzen Quiz zu holen sind. */
 export function punkteGesamt(quiz: Quiz): number {
   return quiz.runden.reduce(
