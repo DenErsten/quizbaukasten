@@ -230,3 +230,51 @@ describe("frageVerschieben", () => {
     expect(() => frageVerschieben(q, "gibt-es-nicht", 0, 1)).toThrow(QuizFehler);
   });
 });
+
+describe("quizLaden prüft Runden und Fragen", () => {
+  it("weist eine Runde ohne fragen-Array zurück", () => {
+    const roh = JSON.stringify({
+      id: "q",
+      titel: "Testquiz",
+      runden: [{ id: "q-r1", titel: "Runde 1" }],
+    });
+    expect(() => quizLaden(roh)).toThrow(QuizFehler);
+  });
+
+  it("weist eine Frage ohne Text zurück", () => {
+    const roh = JSON.stringify({
+      id: "q",
+      titel: "Testquiz",
+      runden: [
+        {
+          id: "q-r1",
+          titel: "Runde 1",
+          fragen: [{ id: "q-r1-f1", typ: "freitext", loesung: "a", punkte: 1 }],
+        },
+      ],
+    });
+    expect(() => quizLaden(roh)).toThrow(QuizFehler);
+  });
+
+  it("weist einen unbekannten Fragetyp zurück", () => {
+    const roh = JSON.stringify({
+      id: "q",
+      titel: "Testquiz",
+      runden: [
+        {
+          id: "q-r1",
+          titel: "Runde 1",
+          fragen: [
+            { id: "q-r1-f1", typ: "multiple-choice", text: "Wer?", loesung: "a", punkte: 1 },
+          ],
+        },
+      ],
+    });
+    expect(() => quizLaden(roh)).toThrow(QuizFehler);
+  });
+
+  it("übersteht speichern und laden weiterhin unverändert", () => {
+    const q = beispielQuiz();
+    expect(quizLaden(quizSpeichern(q))).toEqual(q);
+  });
+});

@@ -170,6 +170,49 @@ export function quizSpeichern(quiz: Quiz): string {
   return JSON.stringify(quiz, null, 2);
 }
 
+const FRAGETYPEN: readonly Fragetyp[] = ["auswahl", "freitext", "schaetzen"];
+
+function pruefeGeladeneFrage(f: unknown, rundenNr: number, frageNr: number): void {
+  const ort = `Runde ${rundenNr}, Frage ${frageNr}`;
+  const frage = f as Partial<Frage> | null;
+  if (!frage || typeof frage !== "object") {
+    throw new QuizFehler(`${ort}: keine gültige Frage.`);
+  }
+  if (!frage.id) {
+    throw new QuizFehler(`${ort}: fehlende Kennung.`);
+  }
+  if (!FRAGETYPEN.includes(frage.typ as Fragetyp)) {
+    throw new QuizFehler(`${ort}: unbekannter Fragetyp.`);
+  }
+  if (!frage.text) {
+    throw new QuizFehler(`${ort}: fehlender Text.`);
+  }
+  if (frage.loesung === undefined || frage.loesung === null) {
+    throw new QuizFehler(`${ort}: fehlende Lösung.`);
+  }
+  if (typeof frage.punkte !== "number") {
+    throw new QuizFehler(`${ort}: fehlende oder ungültige Punktzahl.`);
+  }
+}
+
+function pruefeGeladeneRunde(r: unknown, rundenNr: number): void {
+  const ort = `Runde ${rundenNr}`;
+  const runde = r as Partial<Runde> | null;
+  if (!runde || typeof runde !== "object") {
+    throw new QuizFehler(`${ort}: keine gültige Runde.`);
+  }
+  if (!runde.id) {
+    throw new QuizFehler(`${ort}: fehlende Kennung.`);
+  }
+  if (!runde.titel) {
+    throw new QuizFehler(`${ort}: fehlender Titel.`);
+  }
+  if (!Array.isArray(runde.fragen)) {
+    throw new QuizFehler(`${ort}: fehlendes Fragen-Array.`);
+  }
+  runde.fragen.forEach((f, i) => pruefeGeladeneFrage(f, rundenNr, i + 1));
+}
+
 export function quizLaden(roh: string): Quiz {
   let daten: unknown;
   try {
@@ -181,5 +224,6 @@ export function quizLaden(roh: string): Quiz {
   if (!q?.id || !q?.titel || !Array.isArray(q.runden)) {
     throw new QuizFehler("Gespeichertes Quiz ist unvollständig.");
   }
+  q.runden.forEach((r, i) => pruefeGeladeneRunde(r, i + 1));
   return q as Quiz;
 }
