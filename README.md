@@ -47,7 +47,8 @@ an Produktion ist es nicht.
 │   ├── setup-labels.sh           Label-Set anlegen (Gates!)
 │   ├── setup-repo.sh             Branch Protection, Checks, Umgebungen
 │   ├── transkribieren.sh         Audio → Transkript mit Sprechertrennung
-│   └── voice_dialog.py           Sprachdialog mit dem Agenten (Push-to-Talk)
+│   ├── voice_dialog.py           Sprachdialog mit dem Agenten (Push-to-Talk)
+│   └── mithoeren.py              Live-Mitschrift: laufender JSON-Strom statt Datei
 └── n8n/
     ├── 01-meeting-pipeline.json  Importierbar
     └── README.md                 Bauanleitung für das Freigabe-Gate
