@@ -82,6 +82,34 @@ Damit gilt Gate G1 technisch und nicht nur als Absicht, und Gate G4 hält den
 Produktions-Deploy an, bis ein Mensch klickt. `enforce_admins: true` schließt
 Firat ausdrücklich mit ein — das ist der Punkt der Übung, nicht ein Versehen.
 
+### Beleg: `scripts/setup-repo.sh` läuft bis 5/5
+
+Lauf vom 2026-09-11, nachdem das Repo öffentlich geschaltet war. Vorher brach
+dasselbe Skript bei 2/5 mit `403 Upgrade to GitHub Pro` ab.
+
+    $ ./scripts/setup-repo.sh
+    Repo:   DenErsten/quizbaukasten
+    Mensch: DenErsten
+
+    1/5  Auto-Merge einschalten
+         an
+
+    2/5  Branch Protection auf main
+         Required Checks: pfade, pruefen, review, abnahme
+
+    3/5  Umgebung 'staging'
+         ohne Freigabe — jeder Merge geht durch
+
+    4/5  Umgebung 'produktion' mit menschlicher Freigabe  (Gate G4)
+         Required Reviewer: DenErsten
+
+    5/5  Gegenproben
+
+Die Werte im Abschnitt oben stammen nicht aus dieser Ausgabe, sondern aus
+einem anschließenden Lesen von `branches/main/protection`. Ein Skript, das
+meldet, es habe etwas gesetzt, ist kein Beleg dafür, dass es gesetzt ist —
+diese Unterscheidung hat an diesem Tag zweimal den Unterschied gemacht.
+
 ### Gegenprobe: direkter Push auf main
 
 Am 2026-09-11 von Firat ausgeführt, auf seinem eigenen Repo, mit
