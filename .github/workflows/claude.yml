@@ -36,4 +36,56 @@ jobs:
             # entgleiste Laeufe schuetzt timeout-minutes, waehrend etwas
             # passiert, statt hinterher. Siehe #23.
             --max-turns 60
-            --append-system-prompt "Halte dich an CLAUDE.md. Du darfst niemals auf main pushen, keinen PR mergen, kein Label status:freigegeben setzen und kein Release veroeffentlichen. Antworte auf Deutsch."
+            --append-system-prompt "Halte dich an CLAUDE.md. Du darfst niemals auf main pushen, keinen PR mergen, kein Label status:freigegeben setzen und kein Release veroeffentlichen. Antworte auf Deutsch. Deine Commit-Nachricht wird zum Text des Pull Requests: Schreib in den Body, warum die Aenderung noetig war, und einen Abschnitt '## Abnahmenachweis', der fuer jeden Teil des Abnahmekriteriums Datei und Zeile nennt. Der Check 'abnahme' liest genau das und nimmt Behauptungen nicht an."
+
+      # claude-code-action legt selbst keinen Pull Request an. Sie committet
+      # auf einen Branch und haengt dem Issue einen "Create PR"-Link an, auf
+      # den ein Mensch klicken soll. Das ist Absicht der Action — fuer dieses
+      # Repo aber die Stelle, an der die Kette reisst: Auf #21 und #26 lag
+      # fertige, getestete Arbeit auf einem Branch, den niemand sucht.
+      #
+      # always(), weil genau der interessante Fall ein Fehlschlag ist: Auf #21
+      # war der Lauf inhaltlich fertig und scheiterte erst an --max-turns.
+      # Ohne always() waere die Arbeit auch dann verloren.
+      - name: Pull Request anlegen, falls der Agent etwas gebaut hat
+        if: always() && github.event.issue.number
+        env:
+          GH_TOKEN: ${{ secrets.BOT_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          NR: ${{ github.event.issue.number }}
+        run: |
+          git fetch --quiet origin \
+            "+refs/heads/claude/issue-${NR}-*:refs/remotes/origin/claude/issue-${NR}-*" || true
+
+          zweig="$(git for-each-ref --sort=-committerdate --count=1 \
+                     --format='%(refname:lstrip=3)' \
+                     "refs/remotes/origin/claude/issue-${NR}-*")"
+          if [ -z "$zweig" ]; then
+            echo "Kein Branch zu Issue #${NR}. Der Agent hat nichts gebaut."
+            exit 0
+          fi
+
+          git fetch --quiet origin main
+          anzahl="$(git rev-list --count "origin/main..origin/${zweig}")"
+          if [ "$anzahl" = "0" ]; then
+            echo "Branch ${zweig} enthaelt nichts, was main nicht schon hat."
+            exit 0
+          fi
+
+          if [ -n "$(gh pr list --head "$zweig" --state all --json number --jq '.[].number')" ]; then
+            echo "Zu ${zweig} gibt es bereits einen Pull Request."
+            exit 0
+          fi
+
+          # Der Text kommt aus der Commit-Nachricht. Sie ist das, was der
+          # Agent ueber seine eigene Arbeit sagt — und CLAUDE.md verlangt
+          # dort ohnehin "warum, nicht was" und ein "Refs #<issue>".
+          titel="$(git log -1 --format=%s "origin/${zweig}")"
+          git log -1 --format=%b "origin/${zweig}" > /tmp/pr.md
+          if ! grep -q "Refs #${NR}" /tmp/pr.md; then
+            printf '\nRefs #%s\n' "$NR" >> /tmp/pr.md
+          fi
+          printf '\n---\nAngelegt vom Workflow aus Branch `%s`. Siehe #24.\n' "$zweig" >> /tmp/pr.md
+
+          gh pr create --base main --head "$zweig" \
+            --title "$titel" --body-file /tmp/pr.md
