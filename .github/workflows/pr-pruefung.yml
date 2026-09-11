@@ -233,7 +233,7 @@ jobs:
             {"urteil": "frei" oder "blockiert", "grund": "ein Satz",
              "befunde": ["..."]}
           claude_args: |
-            --max-turns 30
+            --max-turns 60
             --model claude-sonnet-5
             --allowedTools "Read,Glob,Grep,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*),Bash(git log:*),Bash(git diff:*)"
 
@@ -325,7 +325,7 @@ jobs:
             {"urteil": "frei" oder "blockiert", "issue": <nummer oder null>,
              "kriterium": "…", "nachweis": "…", "grund": "…"}
           claude_args: |
-            --max-turns 25
+            --max-turns 60
             --model claude-sonnet-5
             --allowedTools "Read,Glob,Grep,Write,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*)"
 
