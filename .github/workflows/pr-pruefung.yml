@@ -288,6 +288,58 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # Laeuft IMMER, auch bei Workflow-PRs. Gate G2 haengt an einem Label,
+      # nicht an einem Urteil — dafuer braucht es keinen Agenten und keine
+      # Workflow-Validierung.
+      #
+      # Bis #57 hing die Label-Pruefung an derselben Ausnahme wie die
+      # inhaltliche Pruefung (#12). Fuer PRs auf .github/workflows/** war
+      # Gate G2 damit nicht abgeschwaecht, sondern abwesend — und genau so
+      # ist PR #56 gemergt worden, obwohl sein Issue nie freigegeben war.
+      - name: Gate G2 — trägt das Issue status:freigegeben?
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NR: ${{ github.event.pull_request.number }}
+        run: |
+          text="$(gh pr view "$NR" --json body --jq .body)"
+
+          # Codebloecke raus, BEVOR gesucht wird. Ohne das findet der Check
+          # jede zitierte Issue-Nummer — der erste Lauf dieses Schritts ist
+          # daran gescheitert: Im PR-Text stand ein Beispiel "Refs #31", und
+          # weil #31 freigegeben ist, wurde das Gate gruen. Ein Gate, das man
+          # durch Erwaehnen einer Zahl umgeht, ist keines.
+          ohne_code="$(printf '%s\n' "$text" | awk '/^[[:space:]]*```/{c=!c; next} !c')"
+
+          # Nur am Zeilenanfang. CLAUDE.md verlangt "Refs #<issue>" als eigene
+          # Angabe im PR-Text, nicht als Nebensatz — und was mitten im Fliess-
+          # text steht, ist eher ein Verweis als eine Zugehoerigkeit.
+          nummern="$(printf '%s\n' "$ohne_code" \
+            | grep -oiE '^[[:space:]]*(refs|closes|fixes)[[:space:]]+#[0-9]+' \
+            | grep -oE '[0-9]+' | sort -u)"
+
+          if [ -z "$nummern" ]; then
+            echo "::error::Kein Issue verlinkt. CLAUDE.md verlangt 'Refs #<issue>' im PR-Text."
+            exit 1
+          fi
+
+          # Ein freigegebenes verlinktes Issue genuegt. Mehr zu verlangen
+          # wuerde PRs blockieren, die nebenbei auf einen Befund verweisen.
+          for nr in $nummern; do
+            labels="$(gh issue view "$nr" --json labels --jq '[.labels[].name] | join(",")')"
+            echo "#$nr: ${labels:-(keine Labels)}"
+            case ",$labels," in
+              *,status:freigegeben,*)
+                echo "Gate G2: #$nr ist freigegeben."
+                exit 0
+                ;;
+            esac
+          done
+
+          echo "::error::Kein verlinktes Issue trägt status:freigegeben. Das ist Gate G2,"
+          echo "::error::und dieses Label setzt nur ein Mensch."
+          exit 1
+
       # Sichtbar statt still. Ein Check, der wortlos verschwindet, ist derselbe
       # Fehler wie "| tee" und "|| echo": Er sieht geprueft aus und ist es nicht.
       - name: Übersprungen, und warum
