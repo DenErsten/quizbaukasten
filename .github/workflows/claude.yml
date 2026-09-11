@@ -28,5 +28,12 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: |
-            --max-turns 25
+            # 25 waren zu wenig: Ein Ticket der Groesse S (eine Funktion,
+            # vier Tests) brauchte 27 Turns. Die Action wertet das Ueber-
+            # schreiten NACH einem erfolgreichen Lauf aus — sie bricht also
+            # nichts ab, sondern verwirft fertige Arbeit. Auf #21 lag der
+            # Code committet auf einem Branch, nur der PR fehlte. Gegen
+            # entgleiste Laeufe schuetzt timeout-minutes, waehrend etwas
+            # passiert, statt hinterher. Siehe #23.
+            --max-turns 60
             --append-system-prompt "Halte dich an CLAUDE.md. Du darfst niemals auf main pushen, keinen PR mergen, kein Label status:freigegeben setzen und kein Release veroeffentlichen. Antworte auf Deutsch."
