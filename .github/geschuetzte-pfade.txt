@@ -16,6 +16,19 @@ CLAUDE.md
 .github/ISSUE_TEMPLATE/**
 scripts/menschen.txt
 
+# Die Skripte, die die Leitplanken durchsetzen. Bis #52 fehlten sie hier:
+# Die Liste war geschuetzt, CLAUDE.md war geschuetzt, menschen.txt war
+# geschuetzt — der Code, der all das durchsetzt, nicht. Ein PR, der
+# pfad_pruefung.py so aendert, dass main() immer 0 liefert, waere von
+# 'pfade' nicht aufgehalten worden.
+#
+# Bewusst einzeln statt scripts/**: Die uebrigen Skripte sind gewoehnlicher
+# Code, an dem viel gearbeitet wird. Wer hier eine vierte Datei anlegt, die
+# etwas durchsetzt, traegt sie dazu.
+scripts/pfad_pruefung.py
+scripts/setup-repo.sh
+scripts/setup-labels.sh
+
 # --- Der Plan und die Kundenwahrheit ---
 docs/plan.md
 docs/pilotnutzer.md

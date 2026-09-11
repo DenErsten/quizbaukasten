@@ -158,3 +158,44 @@ class Freigaben(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WaechterSchuetztSichSelbst(unittest.TestCase):
+    """
+    Gegen die echte Liste, nicht gegen MUSTER oben.
+
+    Die anderen Tests nehmen eine feste Musterliste, damit eine Aenderung an
+    .github/geschuetzte-pfade.txt sie nicht kippt. Hier ist es umgekehrt: Es
+    geht genau um den Inhalt der echten Datei. Faellt eine dieser Zeilen bei
+    einer spaeteren Aufraeumaktion weg, soll es rot werden — sonst merkt es
+    niemand, so wie es bis #52 niemand gemerkt hat.
+    """
+
+    DURCHSETZER = [
+        "scripts/pfad_pruefung.py",
+        "scripts/setup-repo.sh",
+        "scripts/setup-labels.sh",
+    ]
+
+    def test_durchsetzende_skripte_sind_geschuetzt(self) -> None:
+        from scripts.pfad_pruefung import MUSTERDATEI, zeilen
+
+        muster = zeilen(MUSTERDATEI)
+        for datei in self.DURCHSETZER:
+            with self.subTest(datei=datei):
+                self.assertTrue(
+                    any(passt(datei, m) for m in muster),
+                    f"{datei} setzt Leitplanken durch, steht aber unter keinem Muster",
+                )
+
+    def test_gewoehnliche_skripte_bleiben_frei(self) -> None:
+        """Die Gegenprobe zu A: scripts/** waere zu viel gewesen."""
+        from scripts.pfad_pruefung import MUSTERDATEI, zeilen
+
+        muster = zeilen(MUSTERDATEI)
+        for datei in ("scripts/mithoeren.py", "scripts/ausloeser.py"):
+            with self.subTest(datei=datei):
+                self.assertFalse(
+                    any(passt(datei, m) for m in muster),
+                    f"{datei} ist gewöhnlicher Code und sollte ohne Freigabe änderbar sein",
+                )
