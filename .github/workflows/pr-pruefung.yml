@@ -45,9 +45,21 @@ jobs:
         run: |
           gh pr diff "$NR" --name-only > /tmp/geaendert.txt
           gh pr view "$NR" --json reviews,files > /tmp/pr.json
+
+          # Kein "| tee". Der Exit-Code einer Pipeline ist der des letzten
+          # Glieds, und tee liefert immer 0 — der Waechter hat dadurch gemeldet,
+          # was er fand, ohne jemals etwas aufzuhalten. Schritte laufen mit
+          # bash -e, aber ohne pipefail; darauf darf sich hier nichts verlassen.
+          set +e
           python3 scripts/pfad_pruefung.py \
             --geaendert /tmp/geaendert.txt \
-            --pr /tmp/pr.json | tee /tmp/bericht.txt
+            --pr /tmp/pr.json > /tmp/bericht.txt
+          ergebnis=$?
+          set -e
+
+          cat /tmp/bericht.txt
+          echo "ergebnis=$ergebnis" >> "$GITHUB_OUTPUT"
+          exit $ergebnis
         continue-on-error: true
         id: pruefung
 
@@ -57,22 +69,34 @@ jobs:
           NR: ${{ github.event.pull_request.number }}
         run: |
           cat /tmp/bericht.txt >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.pruefung.outcome }}" = "failure" ]; then
-            # Nur einmal kommentieren, nicht bei jedem Push erneut.
-            if ! gh pr view "$NR" --json comments \
-                 --jq '.comments[].body' | grep -q "Pfad-Wächter"; then
-              {
-                echo "**Pfad-Wächter:** Dieser PR ändert Dateien, die festlegen,"
-                echo "wie die KI entscheidet. Merge bleibt blockiert, bis ein Mensch"
-                echo "aus \`scripts/menschen.txt\` den PR freigibt."
-                echo
-                echo '```'
-                cat /tmp/bericht.txt
-                echo '```'
-              } | gh pr comment "$NR" --body-file -
-            fi
+          ergebnis="${{ steps.pruefung.outputs.ergebnis }}"
+
+          # 0 = frei, 1 = geschuetzter Pfad ohne Freigabe, 2 = der Waechter
+          # selbst ist kaputt (fehlende Musterdatei). Nur 0 darf durch.
+          if [ "$ergebnis" = "0" ]; then
+            exit 0
+          fi
+
+          if [ "$ergebnis" != "1" ]; then
+            echo "::error::Der Pfad-Wächter konnte nicht urteilen (Exit $ergebnis)."
+            echo "::error::Im Zweifel blockiert — ein kaputter Wächter ist kein freier Weg."
             exit 1
           fi
+
+          # Nur einmal kommentieren, nicht bei jedem Push erneut.
+          if ! gh pr view "$NR" --json comments \
+               --jq '.comments[].body' | grep -q "Pfad-Wächter"; then
+            {
+              echo "**Pfad-Wächter:** Dieser PR ändert Dateien, die festlegen,"
+              echo "wie die KI entscheidet. Merge bleibt blockiert, bis ein Mensch"
+              echo "aus \`scripts/menschen.txt\` den PR freigibt."
+              echo
+              echo '```'
+              cat /tmp/bericht.txt
+              echo '```'
+            } | gh pr comment "$NR" --body-file -
+          fi
+          exit 1
 
   # ---------------------------------------------------------------- 2
   pruefen:
@@ -217,10 +241,32 @@ jobs:
       - name: Auto-Merge einschalten
         env:
           GH_TOKEN: ${{ github.token }}
+          # Dieser Job hat bewusst keinen Checkout — er braucht keine Dateien.
+          # Ohne Arbeitsverzeichnis findet gh aber auch kein Repo und bricht ab
+          # mit "fatal: not a git repository". GH_REPO ersetzt den Checkout.
+          GH_REPO: ${{ github.repository }}
           NR: ${{ github.event.pull_request.number }}
         run: |
           # Schaltet nur die Absicht frei. Gemergt wird erst, wenn pfade,
           # pruefen, review und abnahme gruen sind — das entscheidet GitHub,
           # nicht dieser Job und nicht der Agent.
-          gh pr merge "$NR" --auto --squash --delete-branch \
-            || echo "Auto-Merge nicht aktivierbar (Draft, Konflikt oder bereits gesetzt)."
+          if ausgabe="$(gh pr merge "$NR" --auto --squash --delete-branch 2>&1)"; then
+            echo "Auto-Merge scharf. GitHub mergt, sobald alle vier Checks gruen sind."
+            exit 0
+          fi
+
+          echo "$ausgabe"
+
+          # Nur diese Faelle sind erwartet. Bei allem anderen wird der Job rot:
+          # ein Fallback, der jeden Fehler auffaengt, ist an dieser Stelle
+          # dasselbe wie kein Job — er meldet gruen, ohne etwas getan zu haben.
+          case "$ausgabe" in
+            *"draft state"*|*"already enabled"*|*"not mergeable"*|*"Merge conflict"*)
+              echo "Erwarteter Fall. Auto-Merge bleibt aus, der PR bleibt offen."
+              exit 0
+              ;;
+          esac
+
+          echo "::error::Auto-Merge liess sich nicht aktivieren, und der Grund"
+          echo "::error::steht nicht auf der Liste der erwarteten Faelle."
+          exit 1
