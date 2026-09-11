@@ -3,6 +3,7 @@ import {
   QuizFehler,
   antwortPruefen,
   frageHinzufuegen,
+  frageVerschieben,
   punkteGesamt,
   quizAnlegen,
   quizLaden,
@@ -198,5 +199,34 @@ describe("Fragetypen", () => {
         punkte: 1,
       }),
     ).toThrow(QuizFehler);
+  });
+});
+
+describe("frageVerschieben", () => {
+  it("ändert die Reihenfolge der Fragen in der Runde", () => {
+    const q = beispielQuiz();
+    const rundenId = q.runden[0].id;
+    const ids = q.runden[0].fragen.map((f) => f.id);
+    const verschoben = frageVerschieben(q, rundenId, 1, 0);
+    expect(verschoben.runden[0].fragen.map((f) => f.id)).toEqual([ids[1], ids[0]]);
+  });
+
+  it("lässt das übergebene Quiz unverändert", () => {
+    const q = beispielQuiz();
+    const rundenId = q.runden[0].id;
+    const vorher = q.runden[0].fragen.map((f) => f.id);
+    frageVerschieben(q, rundenId, 1, 0);
+    expect(q.runden[0].fragen.map((f) => f.id)).toEqual(vorher);
+  });
+
+  it("weist einen Index außerhalb der Liste zurück", () => {
+    const q = beispielQuiz();
+    const rundenId = q.runden[0].id;
+    expect(() => frageVerschieben(q, rundenId, 0, 5)).toThrow(QuizFehler);
+  });
+
+  it("weist eine unbekannte rundenId zurück", () => {
+    const q = beispielQuiz();
+    expect(() => frageVerschieben(q, "gibt-es-nicht", 0, 1)).toThrow(QuizFehler);
   });
 });
