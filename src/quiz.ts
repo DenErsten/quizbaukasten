@@ -141,6 +141,34 @@ export function frageVerschieben(
   return { ...quiz, runden };
 }
 
+/**
+ * Verschiebt eine Runde innerhalb des Quiz an eine andere Position.
+ *
+ * Die Kennungen der Runden und ihrer Fragen bleiben unverändert — eine
+ * Runden-ID ist ein Name, keine Position. Nur die Reihenfolge in der
+ * Liste ändert sich.
+ */
+export function rundeVerschieben(quiz: Quiz, vonIndex: number, nachIndex: number): Quiz {
+  const anzahl = quiz.runden.length;
+  if (
+    !Number.isInteger(vonIndex) ||
+    !Number.isInteger(nachIndex) ||
+    vonIndex < 0 ||
+    vonIndex >= anzahl ||
+    nachIndex < 0 ||
+    nachIndex >= anzahl
+  ) {
+    throw new QuizFehler(
+      `Index außerhalb der Liste: ${vonIndex} -> ${nachIndex} (Quiz hat ${anzahl} Runden).`,
+    );
+  }
+
+  const runden = [...quiz.runden];
+  const [runde] = runden.splice(vonIndex, 1);
+  runden.splice(nachIndex, 0, runde);
+  return { ...quiz, runden };
+}
+
 /** Wie viele Punkte im ganzen Quiz zu holen sind. */
 export function punkteGesamt(quiz: Quiz): number {
   return quiz.runden.reduce(

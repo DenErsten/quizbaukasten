@@ -9,6 +9,7 @@ import {
   quizLaden,
   quizSpeichern,
   rundeHinzufuegen,
+  rundeVerschieben,
   type Frage,
 } from "../src/quiz";
 
@@ -228,6 +229,56 @@ describe("frageVerschieben", () => {
   it("weist eine unbekannte rundenId zurück", () => {
     const q = beispielQuiz();
     expect(() => frageVerschieben(q, "gibt-es-nicht", 0, 1)).toThrow(QuizFehler);
+  });
+});
+
+describe("rundeVerschieben", () => {
+  function zweiRundenQuiz() {
+    let q = quizAnlegen("Testquiz");
+    q = rundeHinzufuegen(q, "Musik");
+    q = rundeHinzufuegen(q, "Erdkunde");
+    q = frageHinzufuegen(q, q.runden[0].id, {
+      typ: "freitext",
+      text: "Wer sang „Wonderwall“?",
+      loesung: "Oasis",
+      punkte: 1,
+    });
+    q = frageHinzufuegen(q, q.runden[1].id, {
+      typ: "freitext",
+      text: "Hauptstadt von Peru?",
+      loesung: "Lima",
+      punkte: 1,
+    });
+    return q;
+  }
+
+  it("ändert die Reihenfolge der Runden", () => {
+    const q = zweiRundenQuiz();
+    const titel = q.runden.map((r) => r.titel);
+    const verschoben = rundeVerschieben(q, 1, 0);
+    expect(verschoben.runden.map((r) => r.titel)).toEqual([titel[1], titel[0]]);
+  });
+
+  it("lässt das übergebene Quiz unverändert", () => {
+    const q = zweiRundenQuiz();
+    const vorher = q.runden.map((r) => r.titel);
+    rundeVerschieben(q, 1, 0);
+    expect(q.runden.map((r) => r.titel)).toEqual(vorher);
+  });
+
+  it("weist einen Index außerhalb der Liste zurück", () => {
+    const q = zweiRundenQuiz();
+    expect(() => rundeVerschieben(q, 0, 5)).toThrow(QuizFehler);
+  });
+
+  it("lässt Runden-Kennungen und ihre Fragen nach dem Verschieben unverändert", () => {
+    const q = zweiRundenQuiz();
+    const vorher = q.runden.map((r) => ({ id: r.id, fragen: r.fragen }));
+    const verschoben = rundeVerschieben(q, 1, 0);
+    const nachher = verschoben.runden.map((r) => ({ id: r.id, fragen: r.fragen }));
+    expect(nachher).toEqual(expect.arrayContaining(vorher));
+    expect(nachher.find((r) => r.id === vorher[0].id)?.fragen).toEqual(vorher[0].fragen);
+    expect(nachher.find((r) => r.id === vorher[1].id)?.fragen).toEqual(vorher[1].fragen);
   });
 });
 
