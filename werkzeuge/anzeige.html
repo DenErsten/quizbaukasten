@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<title>Live-Hinweise</title>
+<style>
+  /* Ruhig und kontrastarm — das Gespraech hat Vorrang, nicht das Fenster. */
+  body {
+    font-family: system-ui, sans-serif;
+    background: #111;
+    color: #eee;
+    margin: 0;
+    padding: 1rem;
+  }
+  .hinweis {
+    border-bottom: 1px solid #333;
+    padding: 0.75rem 0;
+  }
+  .hinweis:first-child {
+    padding-top: 0;
+  }
+  .zitat {
+    margin: 0;
+    font-size: 1.15rem;
+  }
+  .grund {
+    margin: 0.25rem 0;
+    color: #999;
+    font-size: 0.95rem;
+  }
+  .frage {
+    margin: 0;
+    font-size: 1.05rem;
+  }
+</style>
+</head>
+<body>
+<div id="hinweise"></div>
+<script type="module">
+  import { anzeigen } from "./anzeige.js";
+
+  // Quelle: eine JSON-Datei mit der Liste aller bisherigen Hinweise aus
+  // scripts/ausloeser.py, per ?quelle= ueberschreibbar. Kein Framework,
+  // keine neue Abhaengigkeit — nur ein Poll auf eine Datei.
+  const container = document.getElementById("hinweise");
+  const quelle = new URLSearchParams(location.search).get("quelle") ?? "strom.json";
+
+  async function aktualisieren() {
+    try {
+      const antwort = await fetch(quelle, { cache: "no-store" });
+      if (!antwort.ok) return;
+      anzeigen(await antwort.json(), container);
+    } catch (fehler) {
+      console.debug("Anzeige: Quelle noch nicht lesbar", fehler);
+    }
+  }
+
+  aktualisieren();
+  setInterval(aktualisieren, 1000);
+</script>
+</body>
+</html>
