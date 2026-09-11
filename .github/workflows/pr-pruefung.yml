@@ -244,6 +244,18 @@ jobs:
             Kleinigkeiten (Stil, Benennung, Formulierung) blockieren nicht.
             Schreibe sie als Kommentar, aber urteile "frei".
 
+            Labels, Freigaben und Abnahmekriterien sind NICHT deine Aufgabe.
+            Ob ein Issue status:freigegeben traegt und ob das "fertig, wenn ..."
+            erfuellt ist, prueft der Check "abnahme". Auch wenn dir dort etwas
+            auffaellt: Es ist kein Blockiergrund fuer dich. Urteile
+            ausschliesslich ueber den Diff.
+
+            Der Grund steht in #44. Ein Label zu pruefen ist trivial und immer
+            eindeutig, einen Diff zu beurteilen ist Arbeit mit unsicherem
+            Ausgang. Wer beides darf, erfuellt die leichte Rolle zuerst und
+            laesst die schwere liegen — genau das ist an PR #43 passiert, wo
+            der Code in Ordnung war und trotzdem auf dem Label blockiert wurde.
+
             Schreibe zum Schluss die Datei urteil.json, genau so:
             {"urteil": "frei" oder "blockiert", "grund": "ein Satz",
              "befunde": ["..."]}
