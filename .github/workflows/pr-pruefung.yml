@@ -160,6 +160,21 @@ jobs:
       - run: npm test
       - run: npm run build
 
+      # Im Repo liegt Python, das niemand ausfuehrt — darunter
+      # scripts/pfad_pruefung.py, also Gate G3 selbst. Ein Test, den kein
+      # Lauf startet, ist eine Behauptung; dasselbe Muster wie "| tee" in #9
+      # und "|| echo" in #7. unittest statt pytest, weil es in der
+      # Standardbibliothek steht und keine Abhaengigkeit braucht.
+      - name: Python-Tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          if ls tests/*_test.py >/dev/null 2>&1; then
+            python3 -m unittest discover -s tests -p "*_test.py" -v
+          else
+            echo "Keine Python-Tests vorhanden."
+          fi
+
   # ---------------------------------------------------------------- 3
   review:
     name: review
