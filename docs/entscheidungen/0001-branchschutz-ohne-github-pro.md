@@ -82,6 +82,32 @@ Damit gilt Gate G1 technisch und nicht nur als Absicht, und Gate G4 hält den
 Produktions-Deploy an, bis ein Mensch klickt. `enforce_admins: true` schließt
 Firat ausdrücklich mit ein — das ist der Punkt der Übung, nicht ein Versehen.
 
+### Gegenprobe: direkter Push auf main
+
+Am 2026-09-11 von Firat ausgeführt, auf seinem eigenen Repo, mit
+Admin-Rechten. GitHub hat abgelehnt:
+
+    $ git commit --allow-empty -m "darf nicht durchgehen"
+    $ git push origin main
+
+    remote: error: GH006: Protected branch update failed for refs/heads/main.
+    remote:
+    remote: - Changes must be made through a pull request.
+    remote:
+    remote: - 4 of 4 required status checks are expected.
+    To https://github.com/DenErsten/quizbaukasten.git
+     ! [remote rejected] main -> main (protected branch hook declined)
+
+Beide genannten Gründe zählen. Der erste bestätigt, dass der Weg über einen
+Pull Request führt; der zweite, dass die vier Checks tatsächlich als
+*required* eingetragen sind und nicht bloß laufen.
+
+Dass die Ablehnung den Inhaber des Repos trifft, ist der eigentliche
+Nachweis. Ein Schutz, der für alle außer den Besitzer gilt, schützt an dem
+Tag nicht, an dem es darauf ankommt — das war am selben Vormittag zu
+besichtigen, als ein Merge mit zwei roten Checks durchging, weil es zu
+diesem Zeitpunkt keine Branch Protection gab.
+
 Was der Schritt nach sich zieht:
 
 - Die Commit-Mailadresse `firat.keskin@cap3.de` steht in der öffentlichen
