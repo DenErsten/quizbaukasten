@@ -1,6 +1,6 @@
 # 0001 — Branchschutz ohne GitHub Pro
 
-**Status:** offen — wartet auf Firat
+**Status:** entschieden — Option A
 **Datum:** 2026-09-11
 **Betrifft:** Gate G1 (kein Merge ohne die vier Checks), Gate G4 (Freigabe Produktion)
 **Issue:** #1
@@ -57,16 +57,45 @@ Leitplanken gibt, an denen er scheitern könnte.
 
 ## Entscheidung
 
-_(offen — trägt Firat ein)_
+**Option A.** Das Repo ist öffentlich. Firat hat am 2026-09-11 entschieden.
+
+Ausschlaggebend war, dass das Argument gegen A bei genauerem Hinsehen keines
+war: Marek Sowa ist eine Planspiel-Figur, `docs/angebote/` ist leer, und es
+gibt kein Kundenmaterial, das geschützt werden müsste. Option A′ hätte ein
+Problem gelöst, das nicht existiert. Übrig blieb ein Nachteil — die
+Commit-Historie wird mitveröffentlicht — gegen zwei Vorteile: funktionierende
+Gates und unbegrenzte Actions-Minuten.
 
 ## Folgen
 
-_(nach der Entscheidung ausfüllen)_
+`scripts/setup-repo.sh` läuft bis 5/5 durch. Nachgeprüft über die API:
 
-## Was sofort gilt, unabhängig von der Entscheidung
+    required_status_checks : pfade, pruefen, review, abnahme   (strict)
+    enforce_admins         : true
+    allow_force_pushes     : false
+    allow_deletions        : false
+    required_linear_history: true
+    Umgebung produktion    : Required Reviewer DenErsten
+    Umgebung staging       : keine Freigabe
 
-`allow_auto_merge` steht seit Schritt 1/5 auf `true`, ohne dass ein einziger
-Check required ist. Solange das so bleibt, ist die einzige Sicherung gegen
-einen ungeprüften Merge die `deny`-Liste in `.claude/settings.json` — also
-genau die Datei, von der dort selbst steht, dass sie die erste
-Verteidigungslinie ist und nicht die letzte.
+Damit gilt Gate G1 technisch und nicht nur als Absicht, und Gate G4 hält den
+Produktions-Deploy an, bis ein Mensch klickt. `enforce_admins: true` schließt
+Firat ausdrücklich mit ein — das ist der Punkt der Übung, nicht ein Versehen.
+
+Was der Schritt nach sich zieht:
+
+- Die Commit-Mailadresse `firat.keskin@cap3.de` steht in der öffentlichen
+  Historie. Für künftige Commits lässt sich das über eine
+  GitHub-noreply-Adresse vermeiden; rückwirkend nur durch Umschreiben.
+- Actions-Minuten sind unbegrenzt. Vier Claude-Checks je PR plus drei
+  Terminläufe wären auf 2.000 Minuten im Monat eine echte Grenze gewesen.
+- Alles im Repo ist lesbar, auch `.claude/settings.json` und `n8n/*.json`.
+  Beide enthalten keine Zugangsdaten — das bleibt zu prüfen, bevor je ein
+  echter Kunde in diesem Repo auftaucht.
+
+## Was noch offen ist
+
+Die Gates greifen, aber zwei der vier Checks können noch nicht grün werden:
+`review` und `abnahme` brauchen `CLAUDE_CODE_OAUTH_TOKEN`, und das Secret ist
+nicht gesetzt. Bis dahin mergt nichts — was richtig herum falsch ist: das
+System hält an, statt durchzuwinken.
