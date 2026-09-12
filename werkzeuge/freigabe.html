@@ -25,7 +25,7 @@
 <p class="stand" id="stand"></p>
 </main>
 <script type="module">
-  import { konsoleZuHtml } from "/freigabe.js";
+  import { konsoleZuHtml, tatFehlerZuHtml } from "/freigabe.js";
 
   const konsole = document.getElementById("konsole");
   const stand = document.getElementById("stand");
@@ -96,6 +96,9 @@
     });
     const daten = await antwort.json();
     if (daten.fehler) {
+      // Am Knopf, nicht am Seitenende: Wer hier drückt, sieht sonst nichts.
+      knopf.parentElement.querySelector(".tat-fehler")?.remove();
+      knopf.parentElement.insertAdjacentHTML("beforeend", tatFehlerZuHtml(daten.fehler));
       stand.textContent = `Fehler: ${daten.fehler}`;
       knopf.disabled = false;
       return;

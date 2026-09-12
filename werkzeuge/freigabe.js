@@ -77,6 +77,13 @@ export function laufZeile(laeufe) {
 export function prZuHtml(pr) {
   const bezug = pr.issue ? `<span class="marke">Refs #${pr.issue}</span>` :
     `<span class="marke fehlt">kein Issue verlinkt</span>`;
+  // Ein Knopf, der nicht funktionieren kann, wird nicht angeboten — und der
+  // Grund steht daneben, nicht in einem Tooltip. Ein abgeschalteter Knopf
+  // ohne Begruendung ist genauso stumm wie ein Fehler, den niemand sieht (#119).
+  const darf = pr.darf_freigeben ?? !pr.freigegeben;
+  const grund = !darf && pr.grund
+    ? `<p class="grund-dafuer">${maskiert(pr.grund)}</p>`
+    : "";
   const dateien = (pr.dateien ?? []).slice(0, 5).map(maskiert).join(", ");
   return (
     `<article class="eintrag${pr.rote_checks?.length ? " unvollstaendig" : ""}" data-nummer="${pr.nummer}">` +
@@ -85,8 +92,9 @@ export function prZuHtml(pr) {
     checkStand(pr) +
     (dateien ? `<p class="dateien">${dateien}</p>` : "") +
     `<div class="knoepfe">` +
-    `<button type="button" data-tat="freigeben" data-art="pr" data-nummer="${pr.nummer}"${pr.freigegeben ? " disabled" : ""}>Freigeben</button>` +
+    `<button type="button" data-tat="freigeben" data-art="pr" data-nummer="${pr.nummer}"${darf ? "" : " disabled"}>Freigeben</button>` +
     `<button type="button" data-tat="kommentieren" data-art="pr" data-nummer="${pr.nummer}">Rückfrage</button>` +
+    grund +
     `</div></article>`
   );
 }
@@ -150,4 +158,16 @@ export function entscheidungZuHtml(e) {
     grund +
     `</article>`
   );
+}
+
+/**
+ * Was schiefging — direkt am Knopf, nicht in einer Zeile am Seitenende.
+ *
+ * Firat am 2026-09-12: "Wenn ich auf Freigeben drücke passiert nichts."
+ * Es passierte etwas: GitHub lehnte die Selbstfreigabe ab, und die Meldung
+ * stand am unteren Seitenrand. Ein Fehler, den niemand sieht, ist ein
+ * Fehler, den es für den Benutzer nicht gibt (#119).
+ */
+export function tatFehlerZuHtml(text) {
+  return `<p class="tat-fehler" role="alert">${maskiert(text)}</p>`;
 }
