@@ -359,6 +359,9 @@ class Anfrage(SimpleHTTPRequestHandler):
         if self.path == "/leitfaden":
             self._leitfaden()
             return
+        if self.path == "/entscheidungen":
+            self._entscheidungen()
+            return
         if self.path == "/freigaben":
             self._freigaben()
             return
@@ -380,12 +383,24 @@ class Anfrage(SimpleHTTPRequestHandler):
         except Exception as fehler:  # noqa: BLE001
             self._json({"fehler": str(fehler)}, 502)
 
+    def _entscheidungen(self) -> None:
+        """
+        Die offenen Entscheidungen (#108).
+
+        Eigener Weg statt Anhaengsel an /freigaben: Freigeben und entscheiden
+        sind zwei verschiedene Dinge, und was in der Oberflaeche getrennt ist,
+        soll es auch hier sein.
+        """
+        try:
+            self._json(_freigabe_modul().offene_entscheidungen())
+        except Exception as fehler:  # noqa: BLE001
+            self._json({"fehler": str(fehler)}, 502)
+
     def _freigaben(self) -> None:
         freigabe = _freigabe_modul()
 
         try:
             self._json({
-                "entscheidungen": freigabe.offene_entscheidungen(),
                 "issues": freigabe.offene_issues(),
                 "prs": freigabe.offene_prs(),
                 "laeufe": freigabe.laufende_laeufe(),

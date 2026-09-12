@@ -94,7 +94,9 @@ export function prZuHtml(pr) {
 export function konsoleZuHtml(daten) {
   const issues = daten.issues ?? [];
   const prs = daten.prs ?? [];
-  const entscheidungen = daten.entscheidungen ?? [];
+  // Kommt aus /entscheidungen, nicht aus /freigaben — eine Fehlermeldung
+  // von dort ist kein Array und darf nicht als "nichts offen" durchgehen.
+  const entscheidungen = Array.isArray(daten.entscheidungen) ? daten.entscheidungen : [];
   // Entscheidungen stehen oben: Sie blockieren meist etwas weiter unten.
   const oben = entscheidungen.length
     ? `<section class="entscheidungen"><h2>Deine Entscheidung (${entscheidungen.length})</h2>` +

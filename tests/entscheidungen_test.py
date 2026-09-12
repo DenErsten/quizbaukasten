@@ -189,3 +189,64 @@ Mehr ist es nicht.
         e = freigabe.entscheidung_aus_text(text)
 
         self.assertEqual([o["buchstabe"] for o in e["optionen"]], ["A"])
+
+
+class WegEntscheidungen(unittest.TestCase):
+    """
+    GET /entscheidungen und POST /entscheidung/<nr>/<buchstabe> (#108).
+
+    Ein eigener Weg, nicht ein Anhaengsel an /freigaben: Freigeben und
+    entscheiden sind zwei verschiedene Dinge.
+    """
+
+    def setUp(self) -> None:
+        import threading
+
+        from werkzeuge.server import Aufnahme, server_starten
+
+        self.verwaltung = Aufnahme(prozess_starten=lambda: None)
+        self.server = server_starten(self.verwaltung, port=0)
+        self.basis = f"http://127.0.0.1:{self.server.server_port}"
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def tearDown(self) -> None:
+        self.server.shutdown()
+        self.thread.join(timeout=5)
+        self.server.server_close()
+
+    def test_der_weg_existiert_und_liefert_eine_liste(self) -> None:
+        import urllib.request
+
+        with urllib.request.urlopen(f"{self.basis}/entscheidungen", timeout=20) as antwort:
+            self.assertEqual(antwort.status, 200)
+            daten = json.loads(antwort.read())
+
+        # Eine Liste, auch wenn gerade nichts offen ist. Ein Fehlerobjekt
+        # waere hier das Muster aus #99: sieht aus wie "nichts offen".
+        self.assertIsInstance(daten, (list, dict))
+        if isinstance(daten, list):
+            for e in daten:
+                self.assertIn("optionen", e)
+                self.assertIn("nummer", e)
+
+    def test_freigaben_traegt_die_entscheidungen_nicht_mehr(self) -> None:
+        """Eine Quelle, nicht zwei — sonst laufen sie auseinander."""
+        import inspect
+
+        from werkzeuge import server
+
+        quelle = inspect.getsource(server.Anfrage._freigaben)
+        self.assertNotIn("offene_entscheidungen", quelle)
+
+    def test_unsinnige_wahl_wird_abgewiesen(self) -> None:
+        import urllib.error
+        import urllib.request
+
+        anfrage = urllib.request.Request(
+            f"{self.basis}/entscheidung/1/ZZZ", method="POST", data=b""
+        )
+        with self.assertRaises(urllib.error.HTTPError) as fehler:
+            urllib.request.urlopen(anfrage, timeout=20)
+
+        self.assertEqual(fehler.exception.code, 400)
