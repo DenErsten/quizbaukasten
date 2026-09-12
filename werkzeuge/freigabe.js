@@ -94,7 +94,17 @@ export function prZuHtml(pr) {
 export function konsoleZuHtml(daten) {
   const issues = daten.issues ?? [];
   const prs = daten.prs ?? [];
+  // Kommt aus /entscheidungen, nicht aus /freigaben — eine Fehlermeldung
+  // von dort ist kein Array und darf nicht als "nichts offen" durchgehen.
+  const entscheidungen = Array.isArray(daten.entscheidungen) ? daten.entscheidungen : [];
+  // Entscheidungen stehen oben: Sie blockieren meist etwas weiter unten.
+  const oben = entscheidungen.length
+    ? `<section class="entscheidungen"><h2>Deine Entscheidung (${entscheidungen.length})</h2>` +
+      entscheidungen.map(entscheidungZuHtml).join("") +
+      `</section>`
+    : "";
   return (
+    oben +
     laufZeile(daten.laeufe) +
     `<section><h2>Warten auf Freigabe (${issues.length})</h2>` +
     (issues.length ? issues.map(issueZuHtml).join("") : `<p class="leer">Nichts offen.</p>`) +
@@ -102,5 +112,42 @@ export function konsoleZuHtml(daten) {
     `<section><h2>Pull Requests (${prs.length})</h2>` +
     (prs.length ? prs.map(prZuHtml).join("") : `<p class="leer">Nichts offen.</p>`) +
     `</section>`
+  );
+}
+
+/**
+ * Eine offene Entscheidung (#108).
+ *
+ * Die Empfehlung wird ausgeschrieben, nicht nur markiert: Ein Haken ohne
+ * Grund ist eine Anweisung, kein Rat. Wer sie ablehnen soll, muss wissen,
+ * wogegen er sich entscheidet.
+ */
+export function entscheidungZuHtml(e) {
+  const empfohlen = e.empfehlung?.buchstabe;
+  const optionen = (e.optionen ?? [])
+    .map((o) => {
+      const ist = o.buchstabe === empfohlen;
+      return (
+        `<button type="button" class="option${ist ? " empfohlen" : ""}" ` +
+        `data-entscheidung="${maskiert(String(e.nummer))}" data-wahl="${maskiert(o.buchstabe)}">` +
+        `<span class="buchstabe">${maskiert(o.buchstabe)}</span>` +
+        `<span class="was">${maskiert(o.text)}</span>` +
+        (ist ? `<span class="marke">empfohlen</span>` : "") +
+        `</button>`
+      );
+    })
+    .join("");
+
+  const grund = e.empfehlung?.grund
+    ? `<p class="grund"><strong>${maskiert(empfohlen)}</strong>, weil ${maskiert(e.empfehlung.grund)}</p>`
+    : `<p class="grund ohne">Keine Empfehlung — beide Wege sind vertretbar.</p>`;
+
+  return (
+    `<article class="entscheidung">` +
+    `<h3>#${maskiert(String(e.nummer))} ${maskiert(e.titel)}</h3>` +
+    (e.frage ? `<p class="frage">${maskiert(e.frage)}</p>` : "") +
+    `<div class="optionen">${optionen}</div>` +
+    grund +
+    `</article>`
   );
 }

@@ -486,3 +486,96 @@ p.stand.laeuft { color: var(--akzent, #9fd3c0); }
 @media (max-width: 640px) {
   .wesen svg { width: 64px; height: 64px; }
 }
+
+/* --------------------------------------------------------------------- */
+/* Offene Entscheidungen (#108)                                           */
+/*                                                                        */
+/* Stehen oben in der Konsole, weil sie meist etwas weiter unten          */
+/* blockieren. Die Empfehlung ist markiert UND ausgeschrieben: Ein Haken  */
+/* ohne Grund ist eine Anweisung, kein Rat.                               */
+
+.entscheidungen {
+  margin-bottom: 2rem;
+}
+
+.entscheidung {
+  background: var(--bg-erhoben);
+  border: 1px solid var(--rand);
+  border-left: 4px solid var(--akzent);
+  border-radius: var(--rund);
+  padding: 1.1rem 1.35rem;
+  margin-bottom: 1rem;
+}
+
+.entscheidung h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.entscheidung .frage {
+  margin: 0 0 0.9rem;
+  color: var(--fg);
+}
+
+.entscheidung .optionen {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+.entscheidung .option {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr auto;
+  align-items: baseline;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  border-radius: var(--rund);
+  padding: 0.7rem 1rem;
+  margin: 0;
+  background: var(--bg);
+  border: 1px solid var(--rand);
+}
+
+.entscheidung .option .buchstabe {
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.entscheidung .option.empfohlen {
+  border-color: var(--akzent);
+  background: var(--akzent-leise);
+}
+
+.entscheidung .option.empfohlen .buchstabe {
+  color: var(--akzent);
+}
+
+.entscheidung .option .marke {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--akzent);
+  background: none;
+  padding: 0;
+}
+
+.entscheidung .grund {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.entscheidung .grund.ohne {
+  font-style: italic;
+}
+
+@media (max-width: 560px) {
+  .entscheidung .option {
+    grid-template-columns: 1.6rem 1fr;
+  }
+  .entscheidung .option .marke {
+    grid-column: 2;
+  }
+}
