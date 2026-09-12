@@ -1,27 +1,57 @@
 /*
-  Gemeinsames Aussehen der Werkzeuge unter werkzeuge/ (#92).
+  Gemeinsames Aussehen der Werkzeuge unter werkzeuge/ (#92, #106).
 
   Lokale Werkzeuge auf 127.0.0.1, kein oeffentliches Angebot: keine
   Web-Schriften, keine Icon-Bibliotheken, nichts, was eine Netzverbindung
-  braucht. Nur system-ui und diese eine Datei.
+  braucht. Nur diese eine Datei und Schriften, die schon auf dem Rechner
+  liegen.
 
   Die Klassennamen hier sind die, auf die aufnahme.js und freigabe.js schon
   pruefbar HTML rendern (siehe tests/aufnahme.test.ts, tests/freigabe.test.ts).
   Wer hier etwas umbenennt, entschaerft diese Tests — deshalb wird nur
   gestaltet, nicht umbenannt.
+
+  FARBE UND SCHRIFT (#106)
+  ------------------------
+  Washi-Papier statt Weiss, Sumi-Tinte statt Schwarz, ein einziger warmer
+  Akzent (Kaki, die Farbe reifer Kakifruechte). Die Rundung kommt aus der
+  Schrift: "Hiragino Maru Gothic ProN" liegt auf jedem Mac und ist eine
+  echte japanische Rundschrift — nichts wird geladen.
+
+  Hell ist der Ausgangszustand, dunkel folgt der Einstellung des Systems.
 */
 
 :root {
-  --bg: #14201d;
-  --bg-erhoben: #1c2b27;
-  --fg: #e8efec;
-  --muted: #8aa39a;
-  --rand: #3d5a52;
-  --akzent: #9fd3c0;
-  --gut: #7fbf8f;
-  --warnung: #e0a87f;
-  --fehler: #e0645a;
-  --laedt: #e6c67a;
+  --bg: #faf7f1;
+  --bg-erhoben: #fffdf9;
+  --bg-tiefer: #f2ece1;
+  --fg: #2f2a24;
+  --muted: #8b8073;
+  --rand: #e2d9c9;
+  --akzent: #d97a55;
+  --akzent-leise: #f2d9cd;
+  --gut: #7fa07f;
+  --warnung: #c98a3e;
+  --fehler: #bf4f45;
+  --laedt: #c9a24a;
+  --rund: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1b1815;
+    --bg-erhoben: #262119;
+    --bg-tiefer: #14110e;
+    --fg: #f1e9dd;
+    --muted: #9c9081;
+    --rand: #3b342a;
+    --akzent: #e69673;
+    --akzent-leise: #4a342a;
+    --gut: #8fb08f;
+    --warnung: #d6a259;
+    --fehler: #d96b60;
+    --laedt: #d9b45f;
+  }
 }
 
 * {
@@ -31,7 +61,8 @@
 body {
   margin: 0;
   padding: 0 0 2rem;
-  font: 15px/1.6 system-ui, sans-serif;
+  font: 15px/1.65 ui-rounded, "Hiragino Maru Gothic ProN", "M PLUS Rounded 1c",
+        system-ui, sans-serif;
   background: var(--bg);
   color: var(--fg);
 }
@@ -110,14 +141,15 @@ button {
   background: var(--bg-erhoben);
   color: var(--fg);
   border: 1px solid var(--rand);
-  border-radius: 4px;
-  padding: 0.5rem 1.1rem;
+  border-radius: 999px;
+  padding: 0.5rem 1.25rem;
   margin-right: 0.5rem;
   cursor: pointer;
 }
 
 button:hover:not(:disabled) {
-  background: #24352f;
+  background: var(--bg-tiefer);
+  border-color: var(--akzent);
 }
 
 button:disabled {
@@ -287,3 +319,263 @@ button:disabled {
 /* Laufende Checks: weder grün noch rot, sondern "noch nicht entschieden" (#95). */
 .laeuft { color: var(--gedaempft, #9fb5ad); }
 p.stand.laeuft { color: var(--akzent, #9fd3c0); }
+
+/* --------------------------------------------------------------------- */
+/* Das Wesen (#106)                                                       */
+/*                                                                        */
+/* Koerpersprache steckt im SVG selbst (Neigung, Versatz, Spross), nicht  */
+/* in der Animation. Wer Bewegung abschaltet, sieht den Zustand trotzdem. */
+/* Die Bewegung hier legt nur noch Atem darueber.                         */
+
+.wesen {
+  margin: 0 0 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.wesen svg {
+  width: 84px;
+  height: 84px;
+  flex: none;
+  overflow: visible;
+}
+
+.wesen figcaption {
+  font-size: 1.05rem;
+  color: var(--fg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.wesen .zusatz {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.wesen .koerper {
+  fill: var(--bg-erhoben);
+  stroke: var(--rand);
+  stroke-width: 2;
+}
+
+.wesen .spross {
+  fill: var(--gut);
+  transform-box: fill-box;
+}
+
+.wesen .auge {
+  fill: var(--fg);
+}
+
+.wesen .auge-zu,
+.wesen .mund-strich {
+  fill: none;
+  stroke: var(--fg);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.wesen .mund {
+  fill: var(--fg);
+  opacity: 0.75;
+}
+
+.wesen .wange {
+  fill: var(--akzent);
+  opacity: 0.3;
+}
+
+.wesen .schlummer circle {
+  fill: var(--muted);
+  opacity: 0.5;
+}
+
+.wesen .fragezeichen {
+  fill: var(--akzent);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.wesen .ring {
+  fill: none;
+  stroke: var(--laedt);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+/* Der Fehlerfall bekommt keine eigene Suessigkeit: keine Wangen, gedaempfte
+   Farbe. Was kaputt ist, soll nicht niedlich aussehen. */
+.wesen-gescheitert .wange {
+  opacity: 0;
+}
+
+.wesen-gescheitert .koerper {
+  stroke: var(--fehler);
+}
+
+.wesen-gescheitert figcaption {
+  color: var(--fehler);
+}
+
+/* Atem, Blinzeln, Drehung — alles nur Zugabe. */
+@keyframes atem {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+
+@keyframes blinzeln {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+
+@keyframes drehen {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes schweben {
+  0% { opacity: 0; transform: translate(0, 4px); }
+  40% { opacity: 0.6; }
+  100% { opacity: 0; transform: translate(4px, -8px); }
+}
+
+/* Der Atem sitzt auf dem <svg>, NICHT auf der Gruppe .kopf: Eine
+   CSS-transform ersetzt das transform-Attribut im SVG vollstaendig. Auf
+   .kopf wuerde sie Neigung und Versatz wegblasen — die Koerpersprache
+   waere genau in dem Zustand weg, in dem sie etwas bedeutet (hinweis). */
+.wesen svg {
+  transform-origin: 50% 85%;
+}
+
+.wesen-schlaeft svg {
+  animation: atem 5s ease-in-out infinite;
+}
+
+.wesen-hoert svg,
+.wesen-hinweis svg {
+  animation: atem 3s ease-in-out infinite;
+}
+
+.wesen-hoert .auge {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: blinzeln 6s ease-in-out infinite;
+}
+
+.wesen-laedt .ring {
+  transform-box: view-box;
+  transform-origin: 32px 40px;
+  animation: drehen 1.4s linear infinite;
+}
+
+.wesen-schlaeft .schlummer circle {
+  animation: schweben 3.5s ease-in-out infinite;
+}
+
+.wesen-schlaeft .schlummer circle:nth-child(2) { animation-delay: 0.5s; }
+.wesen-schlaeft .schlummer circle:nth-child(3) { animation-delay: 1s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wesen svg,
+  .wesen svg * {
+    animation: none !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .wesen svg { width: 64px; height: 64px; }
+}
+
+/* --------------------------------------------------------------------- */
+/* Offene Entscheidungen (#108)                                           */
+/*                                                                        */
+/* Stehen oben in der Konsole, weil sie meist etwas weiter unten          */
+/* blockieren. Die Empfehlung ist markiert UND ausgeschrieben: Ein Haken  */
+/* ohne Grund ist eine Anweisung, kein Rat.                               */
+
+.entscheidungen {
+  margin-bottom: 2rem;
+}
+
+.entscheidung {
+  background: var(--bg-erhoben);
+  border: 1px solid var(--rand);
+  border-left: 4px solid var(--akzent);
+  border-radius: var(--rund);
+  padding: 1.1rem 1.35rem;
+  margin-bottom: 1rem;
+}
+
+.entscheidung h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.entscheidung .frage {
+  margin: 0 0 0.9rem;
+  color: var(--fg);
+}
+
+.entscheidung .optionen {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+}
+
+.entscheidung .option {
+  display: grid;
+  grid-template-columns: 1.6rem 1fr auto;
+  align-items: baseline;
+  gap: 0.75rem;
+  width: 100%;
+  text-align: left;
+  border-radius: var(--rund);
+  padding: 0.7rem 1rem;
+  margin: 0;
+  background: var(--bg);
+  border: 1px solid var(--rand);
+}
+
+.entscheidung .option .buchstabe {
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.entscheidung .option.empfohlen {
+  border-color: var(--akzent);
+  background: var(--akzent-leise);
+}
+
+.entscheidung .option.empfohlen .buchstabe {
+  color: var(--akzent);
+}
+
+.entscheidung .option .marke {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--akzent);
+  background: none;
+  padding: 0;
+}
+
+.entscheidung .grund {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.entscheidung .grund.ohne {
+  font-style: italic;
+}
+
+@media (max-width: 560px) {
+  .entscheidung .option {
+    grid-template-columns: 1.6rem 1fr;
+  }
+  .entscheidung .option .marke {
+    grid-column: 2;
+  }
+}

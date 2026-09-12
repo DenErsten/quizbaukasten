@@ -32,10 +32,16 @@
 
   async function laden() {
     try {
-      const antwort = await fetch("/freigaben", { cache: "no-store" });
-      const daten = await antwort.json();
-      if (daten.fehler) {
-        stand.textContent = `Fehler: ${daten.fehler}`;
+      // Zwei Wege, zwei Anfragen: /freigaben ist das, was auf ein Ja
+      // wartet, /entscheidungen das, was auf eine Wahl wartet.
+      const [freigaben, entscheidungen] = await Promise.all([
+        fetch("/freigaben", { cache: "no-store" }).then((a) => a.json()),
+        fetch("/entscheidungen", { cache: "no-store" }).then((a) => a.json()),
+      ]);
+      const daten = { ...freigaben, entscheidungen };
+      const fehler = freigaben.fehler ?? entscheidungen.fehler;
+      if (fehler) {
+        stand.textContent = `Fehler: ${fehler}`;
         return;
       }
       konsole.innerHTML = konsoleZuHtml(daten);
@@ -46,6 +52,27 @@
       stand.textContent = `Nicht erreichbar: ${fehler.message}`;
     }
   }
+
+  // Entscheidungen (#108): ein Klick schreibt den Buchstaben als Kommentar.
+  // Kein Label, keine Freigabe — das bleibt der andere Knopf.
+  konsole.addEventListener("click", async (e) => {
+    const wahl = e.target.closest("button[data-entscheidung]");
+    if (!wahl) return;
+    const { entscheidung, wahl: buchstabe } = wahl.dataset;
+    for (const geschwister of wahl.parentElement.querySelectorAll("button")) {
+      geschwister.disabled = true;
+    }
+    const antwort = await fetch(`/entscheidung/${entscheidung}/${buchstabe}`, { method: "POST" });
+    const daten = await antwort.json();
+    if (daten.fehler) {
+      stand.textContent = `Fehler: ${daten.fehler}`;
+      for (const geschwister of wahl.parentElement.querySelectorAll("button")) {
+        geschwister.disabled = false;
+      }
+      return;
+    }
+    await laden();
+  });
 
   konsole.addEventListener("click", async (e) => {
     const knopf = e.target.closest("button[data-tat]");
