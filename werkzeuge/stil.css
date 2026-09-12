@@ -654,3 +654,23 @@ p.stand.laeuft { color: var(--akzent, #9fd3c0); }
 .interview-fertig .frage {
   font-size: 1.05rem;
 }
+
+/* Was schiefging, steht am Knopf (#119). Eine Meldung am Seitenende hat
+   Firat am 2026-09-12 nicht gesehen — fuer ihn passierte schlicht nichts. */
+.tat-fehler {
+  flex-basis: 100%;
+  margin: .5rem 0 0;
+  padding: .5rem .75rem;
+  border-left: 3px solid var(--fehler);
+  border-radius: 0 var(--rund) var(--rund) 0;
+  background: var(--bg-tiefer);
+  color: var(--fehler);
+  font-size: .85rem;
+}
+
+.grund-dafuer {
+  flex-basis: 100%;
+  margin: .4rem 0 0;
+  font-size: .82rem;
+  color: var(--muted);
+}

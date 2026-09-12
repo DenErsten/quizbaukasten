@@ -237,8 +237,10 @@ def offene_prs(aufruf: Aufruf = _gh) -> list[dict]:
     """Offene PRs mit dem Stand ihrer Checks."""
     roh = json.loads(aufruf([
         "pr", "list", "--state", "open", "--limit", "50",
-        "--json", "number,title,body,reviews,statusCheckRollup,files",
+        "--json", "number,title,body,reviews,statusCheckRollup,files,author",
     ]) or "[]")
+    # Wer hier eingeloggt ist, entscheidet, was er freigeben darf.
+    ich = _angemeldet(aufruf)
 
     offen = []
     for p in roh:
@@ -260,8 +262,44 @@ def offene_prs(aufruf: Aufruf = _gh) -> list[dict]:
             "laufende_checks": laeuft,
             "freigegeben": freigegeben,
             "dateien": [f["path"] for f in (p.get("files") or [])][:10],
+            **_darf_freigeben(p, ich, freigegeben),
         })
     return offen
+
+
+def _angemeldet(aufruf: Aufruf = _gh) -> str:
+    """
+    Wer gerade bei gh angemeldet ist. Leer, wenn es sich nicht sagen laesst.
+
+    Leer heisst dann "ich weiss es nicht" und nicht "es ist jemand anderes":
+    Der Knopf bleibt bedienbar, und wenn es schiefgeht, steht die Meldung
+    daneben. Lieber ein Versuch zu viel als ein Knopf, der grundlos fehlt.
+    """
+    try:
+        return json.loads(aufruf(["api", "user", "--jq", "{login: .login}"]) or "{}").get("login", "")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _darf_freigeben(pr: dict, ich: str, freigegeben: bool) -> dict:
+    """
+    Darf der Angemeldete diesen PR freigeben — und wenn nicht, warum nicht?
+
+    GitHub laesst niemanden den eigenen Pull Request freigeben. Das steht
+    vorher fest. Einen Knopf anzubieten, der das erst beim Druecken meldet,
+    ist derselbe Fehler wie eine Fehlermeldung, die niemand sieht (#119).
+    """
+    autor = (pr.get("author") or {}).get("login", "")
+    if freigegeben:
+        return {"autor": autor, "darf_freigeben": False,
+                "grund": "Schon freigegeben."}
+    if ich and autor and autor == ich:
+        return {
+            "autor": autor,
+            "darf_freigeben": False,
+            "grund": f"Eigener Pull Request ({autor}) — GitHub lässt keine Selbstfreigabe zu.",
+        }
+    return {"autor": autor, "darf_freigeben": True, "grund": ""}
 
 
 def laufende_laeufe(aufruf: Aufruf = _gh) -> list[dict]:
