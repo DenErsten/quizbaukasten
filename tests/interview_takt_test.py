@@ -192,3 +192,63 @@ class DerTaktKommtAusDerDatei(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class UhrUndZaehlerZusammen(unittest.TestCase):
+    """
+    Befund des Pruefers in abnahme zu #128.
+
+    Beim ersten Versuch stand die Uhr auf acht Sekunden, waehrend zwei stille
+    Stuecke zehn dauern. Die Uhr kam also immer zuerst — der Stueck-Zaehler
+    war im Betrieb tot, und die Tests merkten es nicht, weil sie beide Wege
+    einzeln prueften.
+
+    Diese Tests lassen beide gleichzeitig laufen, mit fortlaufenden
+    Zeitwerten wie im Betrieb.
+    """
+
+    def test_die_uhr_liegt_hinter_dem_stueck_zaehler(self) -> None:
+        self.assertGreater(PAUSE, STILLE_STUECKE * STUECK_SEKUNDEN)
+
+    def test_im_normalbetrieb_entscheidet_der_zaehler_nicht_die_uhr(self) -> None:
+        """
+        Erkennung laeuft, jemand schweigt. Der Zaehler muss zuschlagen,
+        bevor die Uhr ueberhaupt abgelaufen ist.
+        """
+        i = Interview(ZWEI)
+        i.gehoert(0.0, "so einige halt")
+
+        ereignis = None
+        zeit = 0.0
+        for n in range(1, STILLE_STUECKE + 1):
+            zeit = n * STUECK_SEKUNDEN
+            i.stille(zeit)
+            ereignis = i.takt(zeit)
+            if ereignis:
+                break
+
+        self.assertIsNotNone(ereignis)
+        self.assertLess(zeit, PAUSE, "Der Zähler muss vor der Uhr greifen")
+
+    def test_haengt_die_erkennung_ganz_greift_die_uhr(self) -> None:
+        """Keine Worte, keine Stille-Meldungen — irgendwann muss es weitergehen."""
+        i = Interview(ZWEI)
+        i.gehoert(0.0, "so einige halt")
+
+        self.assertIsNone(i.takt(STILLE_STUECKE * STUECK_SEKUNDEN + 1.0))
+        self.assertIsNotNone(i.takt(PAUSE + 0.1))
+
+    def test_durchgehendes_sprechen_loest_auch_mit_takt_nichts_aus(self) -> None:
+        """Der echte Betrieb: beide Wege aktiv, jemand redet ohne Pause."""
+        i = Interview(ZWEI)
+        ereignisse = []
+
+        for n in range(30):
+            zeit = n * STUECK_SEKUNDEN
+            i.gehoert(zeit, f"und weiter geht es mit Satz {n} ohne jede Zahl")
+            for zwischen in range(int(STUECK_SEKUNDEN)):
+                ereignis = i.takt(zeit + zwischen)
+                if ereignis:
+                    ereignisse.append(ereignis["art"])
+
+        self.assertEqual(ereignisse, [])

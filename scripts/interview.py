@@ -49,12 +49,18 @@ from scripts.mithoeren import STUECK_SEKUNDEN  # noqa: E402
 # Eine Pause, die kuerzer ist als ein Stueck, misst nicht das Gespraech,
 # sondern den Takt der Maschine. Deshalb leitet sie sich ab, statt danebenzu-
 # stehen, und ein Test haelt die Beziehung fest.
-PAUSE = STUECK_SEKUNDEN + 3.0
-
 # Wie viele Stuecke am Stueck ohne ein Wort, bis ein Gedanke als fertig gilt.
 # Das ist das ehrlichere Mass: Es zaehlt, was die Erkennung gemeldet hat,
 # statt zu raten, warum nichts kam.
 STILLE_STUECKE = 2
+
+# Die Uhr ist der Notnagel und muss deshalb SPAETER zuschlagen als der
+# Stueck-Zaehler. Beim ersten Versuch stand sie auf STUECK_SEKUNDEN + 3 = 8
+# Sekunden, waehrend zwei stille Stuecke zehn Sekunden dauern — die Uhr kam
+# also immer zuerst, und der Zaehler war im Betrieb tot. Der Pruefer in
+# abnahme hat genau das gefunden. Ein zweiter Weg, den nie jemand geht, ist
+# kein zweiter Weg, sondern toter Code mit einem Test daneben.
+PAUSE = STILLE_STUECKE * STUECK_SEKUNDEN + 3.0
 
 WEITER = "weiter"
 NACHFRAGEN = "nachfragen"
@@ -217,9 +223,11 @@ class Interview:
         # Gemeldete Stille zaehlt zuerst: Sie ist eine Aussage der Erkennung.
         if self._stille >= self._stille_stuecke:
             return self._entscheiden()
-        # Die Uhr ist der Notnagel fuer den Fall, dass niemand Stille meldet.
-        # Ihre Schwelle ist laenger als ein Stueck — sonst misst sie den Takt
-        # der Maschine statt das Gespraech (#127).
+        # Die Uhr ist der Notnagel fuer den Fall, dass GAR NICHTS mehr kommt:
+        # keine Worte und keine Stille-Meldungen. Dann haengt die Erkennung,
+        # und irgendwann muss das Gespraech trotzdem weitergehen. Ihre
+        # Schwelle liegt hinter dem Stueck-Zaehler, sonst kaeme sie im
+        # Normalbetrieb zuerst und der Zaehler waere Zierde (#127).
         if zeit - self._zuletzt < self._pause:
             return None
         return self._entscheiden()
