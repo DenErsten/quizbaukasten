@@ -47,6 +47,13 @@ from typing import Callable, Protocol
 WURZEL = Path(__file__).resolve().parent.parent
 WERKZEUGE = Path(__file__).resolve().parent
 ANLAUF_SEKUNDEN = 0.5
+
+# Dasselbe Modell wie in scripts/mithoeren.py. Import statt Kopie: Zwei
+# Stellen, die dasselbe behaupten, laufen frueher oder spaeter auseinander.
+try:
+    from scripts.mithoeren import MODELL
+except ImportError:  # pragma: no cover
+    MODELL = "mlx-community/whisper-small-mlx"
 AUFNAHMEN = WURZEL / "aufnahmen"
 
 
@@ -131,6 +138,30 @@ def _pipeline_starten(datei: Path) -> Pipeline:
     return Pipeline([mithoeren, ausloeser], fehlerdatei)
 
 
+def modell_vorhanden(modell: str = MODELL) -> bool:
+    """
+    Liegt das Modell vollstaendig im Cache? Ohne es zu laden.
+
+    local_files_only wirft, wenn etwas fehlt — auch wenn ein angefangener
+    Download Bruchstuecke hinterlassen hat. Genau das war am 2026-09-12 der
+    Fall: 3,7 MB von 459 (#87).
+    """
+    try:
+        from huggingface_hub import snapshot_download  # noqa: PLC0415
+
+        snapshot_download(modell, local_files_only=True)
+        return True
+    except Exception:
+        return False
+
+
+def modell_laden(modell: str = MODELL) -> None:
+    """Holt das Modell. Dauert beim ersten Mal Minuten."""
+    from huggingface_hub import snapshot_download  # noqa: PLC0415
+
+    snapshot_download(modell)
+
+
 class Aufnahme:
     """Startet, stoppt und befragt genau eine Aufnahme gleichzeitig."""
 
@@ -138,9 +169,14 @@ class Aufnahme:
         self,
         aufnahmen_ordner: Path = AUFNAHMEN,
         prozess_starten: Callable[[Path], Prozess] = _pipeline_starten,
+        modell_pruefen: Callable[[], bool] = modell_vorhanden,
+        modell_holen: Callable[[], None] = modell_laden,
     ) -> None:
         self.aufnahmen_ordner = aufnahmen_ordner
         self._prozess_starten = prozess_starten
+        self._modell_pruefen = modell_pruefen
+        self._modell_holen = modell_holen
+        self._laedt = False
         self._sperre = threading.Lock()
         self._prozess: Prozess | None = None
         self._seit: str | None = None
@@ -163,9 +199,19 @@ class Aufnahme:
         zurueck, und niemand erfuhr warum (#76).
         """
         with self._sperre:
-            if self._laeuft():
+            if self._laeuft() or self._laedt:
                 return
             self._fehler = None
+
+            # Das Modell wird beim ersten Erkennungsaufruf geholt — mitten in
+            # der laufenden Aufnahme, 459 MB, unsichtbar. Am 2026-09-12 hat
+            # das zwei Versuche gekostet: Download beginnt, Aufnahme wird
+            # gestoppt, Vorgang stirbt, beim naechsten Mal von vorn (#87).
+            if not self._modell_pruefen():
+                self._laedt = True
+                threading.Thread(target=self._modell_holen_und_melden, daemon=True).start()
+                return
+
             prozess = self._prozess_starten(self._datei())
 
             # Ein Importfehler faellt in Sekundenbruchteilen an. Wer bis
@@ -180,6 +226,15 @@ class Aufnahme:
 
             self._prozess = prozess
             self._seit = datetime.now().isoformat(timespec="seconds")
+
+    def _modell_holen_und_melden(self) -> None:
+        try:
+            self._modell_holen()
+        except Exception as fehler:  # noqa: BLE001
+            # Ein abgebrochener Download darf nicht als "bereit" erscheinen.
+            self._fehler = f"Modell konnte nicht geladen werden: {fehler}"
+        finally:
+            self._laedt = False
 
     def stop(self) -> None:
         """Fall 3: Ohne laufende Aufnahme ist stop wirkungslos, kein Fehler."""
@@ -223,6 +278,7 @@ class Aufnahme:
             self._seit = None
         return {
             "laeuft": laeuft,
+            "laedt_modell": self._laedt,
             "seit": self._seit if laeuft else None,
             "hinweise": len(self.hinweise()),
             "fehler": self._fehler,

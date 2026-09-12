@@ -244,3 +244,90 @@ class PipelineMeldetJedesGlied(unittest.TestCase):
         p = Pipeline([self.Glied(None), self.Glied(None)])
 
         self.assertIsNone(p.poll())
+
+
+class ModellVorabLaden(unittest.TestCase):
+    """
+    #87: Das Modell wurde beim ersten Erkennungsaufruf geholt — mitten in der
+    laufenden Aufnahme, 459 MB, unsichtbar. Zwei Versuche gingen so verloren.
+    """
+
+    class Laeuft:
+        def poll(self): return None
+        def terminate(self): pass
+        def wait(self, timeout=None): return 0
+        def fehler_text(self): return ""
+
+    def _aufnahme(self, vorhanden, holen=lambda: None, prozess=None):
+        import tempfile
+        from werkzeuge.server import Aufnahme
+
+        return Aufnahme(
+            aufnahmen_ordner=pathlib.Path(tempfile.mkdtemp()),
+            prozess_starten=lambda _: prozess or self.Laeuft(),
+            modell_pruefen=lambda: vorhanden,
+            modell_holen=holen,
+        )
+
+    def test_fehlendes_modell_wird_gemeldet_statt_zu_starten(self) -> None:
+        """Fall 1."""
+        import threading
+
+        haelt = threading.Event()
+        a = self._aufnahme(vorhanden=False, holen=haelt.wait)
+        self.addCleanup(haelt.set)
+
+        a.start()
+        status = a.status()
+
+        self.assertTrue(status["laedt_modell"])
+        self.assertFalse(status["laeuft"])
+
+    def test_vorhandenes_modell_startet_sofort(self) -> None:
+        """Fall 2: kein Umweg, wenn nichts zu holen ist."""
+        geholt = []
+        a = self._aufnahme(vorhanden=True, holen=lambda: geholt.append(1))
+
+        a.start()
+
+        self.assertTrue(a.status()["laeuft"])
+        self.assertFalse(a.status()["laedt_modell"])
+        self.assertEqual(geholt, [], "Es gab nichts zu laden")
+
+    def test_abgebrochener_download_wird_zum_fehler(self) -> None:
+        """Fall 3: kein stiller Ruecksprung auf 'bereit'."""
+        import time
+
+        def kaputt():
+            raise OSError("Verbindung abgebrochen")
+
+        a = self._aufnahme(vorhanden=False, holen=kaputt)
+
+        a.start()
+        for _ in range(50):
+            if not a.status()["laedt_modell"]:
+                break
+            time.sleep(0.02)
+
+        status = a.status()
+        self.assertFalse(status["laedt_modell"])
+        self.assertIn("Verbindung abgebrochen", status["fehler"])
+
+    def test_zweiter_start_waehrend_des_ladens_tut_nichts(self) -> None:
+        """Sonst laufen zwei Downloads nebeneinander."""
+        import threading
+
+        haelt = threading.Event()
+        versuche = []
+
+        def holen():
+            versuche.append(1)
+            haelt.wait()
+
+        a = self._aufnahme(vorhanden=False, holen=holen)
+        self.addCleanup(haelt.set)
+
+        a.start()
+        a.start()
+
+        self.assertEqual(len(versuche), 1)
