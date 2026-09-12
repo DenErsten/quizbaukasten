@@ -14,6 +14,7 @@ import json
 import pathlib
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -491,3 +492,120 @@ class LeitfadenWeg(unittest.TestCase):
         self.assertTrue(punkte)
         for punkt in punkte:
             self.assertTrue(punkt["frage"].strip(), punkt)
+
+
+class AbleitungOhneKlick(unittest.TestCase):
+    """
+    Gate G2 in der Ableitung (#102).
+
+    Der teure Fehler waere nicht ein falscher Entwurf, sondern ein Entwurf,
+    der von selbst zum Issue wird. Dann haette sich die Kette selbst
+    beauftragt, und die Freigabe waere Zierde.
+    """
+
+    class Transkript:
+        def transkript(self) -> list:
+            return [{"zeit": 0, "text": "Wir brauchen einen Timer."}]
+
+    ENTWURF = {
+        "titel": "Timer", "kontext": "K", "fertig_wenn": "F",
+        "offene_frage": "", "groesse": "S", "zeit": 0, "zitat": "Z",
+    }
+
+    def _ableitung(self, angelegt: list):
+        from werkzeuge.server import Ableitung
+
+        return Ableitung(
+            self.Transkript(),
+            ableiten_mit=lambda zeilen, punkte: [dict(self.ENTWURF)],
+            anlegen_mit=lambda titel, koerper: (angelegt.append((titel, koerper)), "https://x/1")[1],
+            punkte_lesen=lambda: [],
+        )
+
+    def _fertig(self, ableitung) -> dict:
+        ableitung.ableiten()
+        for _ in range(100):
+            stand = ableitung.stand()
+            if not stand["laeuft"]:
+                return stand
+            time.sleep(0.02)
+        self.fail("Die Ableitung wurde nicht fertig.")
+
+    def test_ableiten_allein_legt_kein_issue_an(self) -> None:
+        angelegt: list = []
+        stand = self._fertig(self._ableitung(angelegt))
+
+        self.assertEqual(len(stand["entwuerfe"]), 1)
+        self.assertEqual(angelegt, [], "Ableiten hat ohne Klick ein Issue angelegt")
+
+    def test_erst_uebernehmen_legt_an(self) -> None:
+        angelegt: list = []
+        ableitung = self._ableitung(angelegt)
+        self._fertig(ableitung)
+
+        url = ableitung.uebernehmen(0)
+
+        self.assertEqual(url, "https://x/1")
+        self.assertEqual(len(angelegt), 1)
+        self.assertEqual(angelegt[0][0], "Timer")
+
+    def test_zweimal_uebernehmen_legt_nur_einmal_an(self) -> None:
+        angelegt: list = []
+        ableitung = self._ableitung(angelegt)
+        self._fertig(ableitung)
+
+        ableitung.uebernehmen(0)
+        ableitung.uebernehmen(0)
+
+        self.assertEqual(len(angelegt), 1)
+
+    def test_unbekannte_nummer_legt_nichts_an(self) -> None:
+        angelegt: list = []
+        ableitung = self._ableitung(angelegt)
+        self._fertig(ableitung)
+
+        with self.assertRaises(IndexError):
+            ableitung.uebernehmen(7)
+        self.assertEqual(angelegt, [])
+
+    def test_ohne_transkript_wird_nichts_abgeleitet(self) -> None:
+        from werkzeuge.server import Ableitung
+
+        class Leer:
+            def transkript(self) -> list:
+                return []
+
+        aufrufe: list = []
+        ableitung = Ableitung(
+            Leer(),
+            ableiten_mit=lambda zeilen, punkte: aufrufe.append(zeilen) or [],
+            anlegen_mit=lambda t, k: "x",
+            punkte_lesen=lambda: [],
+        )
+        stand = ableitung.ableiten()
+
+        self.assertEqual(aufrufe, [])
+        self.assertIn("Kein Transkript", stand["fehler"])
+
+    def test_fehler_wird_gemeldet_statt_als_leere_liste(self) -> None:
+        """Stille waere hier nicht zu unterscheiden von 'nichts gefunden'."""
+        from werkzeuge.server import Ableitung
+
+        def kracht(zeilen, punkte):
+            raise RuntimeError("claude ist fehlgeschlagen")
+
+        ableitung = Ableitung(self.Transkript(), ableiten_mit=kracht,
+                              anlegen_mit=lambda t, k: "x", punkte_lesen=lambda: [])
+        stand = self._fertig(ableitung)
+
+        self.assertIn("claude ist fehlgeschlagen", stand["fehler"])
+        self.assertEqual(stand["entwuerfe"], [])
+
+    def test_stand_unterscheidet_nie_abgeleitet_von_nichts_gefunden(self) -> None:
+        from werkzeuge.server import Ableitung
+
+        ableitung = Ableitung(self.Transkript(), ableiten_mit=lambda z, p: [],
+                              anlegen_mit=lambda t, k: "x", punkte_lesen=lambda: [])
+
+        self.assertFalse(ableitung.stand()["abgeleitet"])
+        self.assertTrue(self._fertig(ableitung)["abgeleitet"])

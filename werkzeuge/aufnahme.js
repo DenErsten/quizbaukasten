@@ -6,6 +6,7 @@
 // HTML als Zeichenkette zurueck, damit die Tests ohne DOM laufen.
 
 import { hinweisZuHtml, sichtbareHinweise, zeitFormatieren } from "./anzeige.js";
+import { WESEN, wesenHtml } from "./wesen.js";
 
 export const ZUSTAND = {
   BEREIT: "bereit",
@@ -53,6 +54,7 @@ export function zustandAusAntwort(antwort) {
 function laedtHtml() {
   return (
     `<div class="aufnahme aufnahme-laedt">` +
+    wesenHtml(WESEN.LAEDT) +
     `<p class="titel">Spracherkennung wird vorbereitet …</p>` +
     `<p class="rat">Das Modell wird einmalig geladen, rund 460 MB. ` +
     `Danach startet die Aufnahme ohne Wartezeit.</p>` +
@@ -71,6 +73,9 @@ function maskiert(text) {
 function gescheitertHtml(zustand) {
   return (
     `<div class="aufnahme aufnahme-gescheitert">` +
+    // Das Wesen sackt zusammen — und der Fehlertext bleibt daneben stehen,
+    // Wort fuer Wort. Ausdruecken, nie verstecken (#106).
+    wesenHtml(WESEN.GESCHEITERT) +
     `<p class="titel">Die Aufnahme konnte nicht starten.</p>` +
     `<pre class="fehler">${maskiert(zustand.fehler)}</pre>` +
     `<p class="rat">Fehlt eine Abhängigkeit? <code>pip3 install sounddevice numpy soundfile mlx-whisper</code></p>` +
@@ -86,6 +91,7 @@ function knopf(id, text, deaktiviert) {
 function bereitHtml() {
   return (
     `<div class="aufnahme aufnahme-bereit">` +
+    wesenHtml(WESEN.SCHLAEFT) +
     knopf("start", "Aufnahme starten", false) +
     knopf("stop", "Aufnahme stoppen", true) +
     `</div>`
@@ -128,8 +134,11 @@ export function transkriptHtml(zeilen, hinweiseVorhanden) {
 }
 
 function laeuftHtml(zustand) {
+  const offeneHinweise = sichtbareHinweise(zustand.hinweise ?? []).length > 0;
   return (
     `<div class="aufnahme aufnahme-laeuft">` +
+    // Wach, solange nichts unscharf war; fragend, sobald etwas auffiel.
+    wesenHtml(offeneHinweise ? WESEN.HINWEIS : WESEN.HOERT) +
     knopf("start", "Aufnahme starten", true) +
     knopf("stop", "Aufnahme stoppen", false) +
     `<p class="zeit">${zeitFormatieren(zustand.sekunden)}</p>` +
@@ -140,10 +149,23 @@ function laeuftHtml(zustand) {
   );
 }
 
+/**
+ * Nach dem Gespraech.
+ *
+ * Hier steht bewusst KEIN Knopf zum Ableiten, obwohl #102 zunaechst einen
+ * hier vorsah: Der Test "keine Knoepfe mehr im Zustand beendet" aus #70
+ * verbietet Bedienelemente in diesem Zustand, und ein bestehender Test wird
+ * nicht entschaerft, damit etwas Neues hineinpasst (CLAUDE.md).
+ *
+ * Der Weg fuehrt stattdessen auf die Anforderungs-Seite. Dort steht der
+ * Knopf neben dem Satz, was beim Ableiten hinausgeht, und direkt ueber dem,
+ * was dabei herauskommt — das ist ohnehin die ehrlichere Stelle.
+ */
 function beendetHtml(zustand) {
   const anzahl = zustand.anzahlHinweise ?? 0;
   return (
     `<div class="aufnahme aufnahme-beendet">` +
+    wesenHtml(WESEN.BEENDET) +
     veraltetHinweis(zustand) +
     `<p class="anzahl">${anzahl} Hinweis${anzahl === 1 ? "" : "e"} in diesem Gespräch</p>` +
     `<a class="weiter" href="${zustand.anforderungenUrl ?? "#"}">Weiter zu den Anforderungen</a>` +

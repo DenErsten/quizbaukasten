@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<title>Anforderungen</title>
+<link rel="stylesheet" href="stil.css" />
+</head>
+<body>
+<header class="kopfzeile">
+  <span class="marke">Werkzeuge</span>
+  <nav>
+    <a href="aufnahme.html">Aufnahme</a>
+    <a href="anforderungen.html" aria-current="page">Anforderungen</a>
+    <a href="freigabe.html">Freigaben</a>
+    <a href="fortschritt.html">Fortschritt</a>
+  </nav>
+</header>
+<main>
+<div id="anforderungen"></div>
+</main>
+<script type="module">
+  import { anforderungenHtml } from "./anforderungen.js";
+
+  const container = document.getElementById("anforderungen");
+  let stand = { laeuft: false, abgeleitet: false, entwuerfe: [], angelegt: {} };
+
+  function rendern() {
+    container.innerHTML = anforderungenHtml(stand);
+
+    const ableiten = document.getElementById("ableiten");
+    if (ableiten) {
+      ableiten.addEventListener("click", async () => {
+        ableiten.disabled = true;
+        await schicken("/anforderungen/ableiten");
+      });
+    }
+
+    // Ein Entwurf, ein Issue, ein Klick. Der Knopf sperrt sich sofort:
+    // Zwei schnelle Klicks duerfen kein zweites Issue erzeugen.
+    for (const knopf of container.querySelectorAll("button[data-entwurf]")) {
+      knopf.addEventListener("click", async () => {
+        knopf.disabled = true;
+        knopf.textContent = "Wird angelegt …";
+        await schicken(`/anforderungen/uebernehmen/${knopf.dataset.entwurf}`);
+      });
+    }
+  }
+
+  async function schicken(pfad) {
+    try {
+      const antwort = await fetch(pfad, { method: "POST" });
+      const daten = await antwort.json();
+      if (daten.fehler) stand = { ...stand, fehler: daten.fehler };
+    } catch (fehler) {
+      stand = { ...stand, fehler: String(fehler.message ?? fehler) };
+    }
+    await holen();
+  }
+
+  async function holen() {
+    try {
+      const antwort = await fetch("/anforderungen", { cache: "no-store" });
+      stand = await antwort.json();
+    } catch (fehler) {
+      stand = { ...stand, fehler: "Kein Server erreichbar." };
+    }
+    rendern();
+  }
+
+  holen();
+  // Waehrend gelesen wird, oefter nachsehen; sonst reicht selten.
+  setInterval(() => { if (stand.laeuft) holen(); }, 1500);
+</script>
+</body>
+</html>
+
+<style>
+  .anforderungen .hinweis { font-size: .85rem; opacity: .75; border-left: 2px solid currentColor;
+                            padding-left: .75rem; margin: 0 0 1.5rem; }
+  .anforderungen .stand { font-size: .85rem; opacity: .7; margin: 0 0 1rem; }
+  .anforderungen .laeuft, .anforderungen .leer { opacity: .7; margin: 0 0 1.5rem; }
+  .anforderungen .fehler { margin: 0 0 1.5rem; }
+  .entwuerfe { list-style: none; margin: 0 0 1.5rem; padding: 0; display: grid; gap: 1.25rem; }
+  .entwurf { border: 1px solid currentColor; border-radius: 3px; padding: 1rem 1.25rem; }
+  .entwurf.fertig { opacity: .55; }
+  .entwurf h3 { margin: 0 0 .25rem; font-size: 1.05rem; }
+  .entwurf .marke { margin: 0 0 .75rem; font-size: .8rem; opacity: .6;
+                    font-variant-numeric: tabular-nums; }
+  .entwurf .kontext { margin: 0 0 .6rem; }
+  .entwurf .kriterium { margin: 0 0 .6rem; font-size: .95rem; }
+  .entwurf .kriterium .feld { font-size: .78rem; text-transform: uppercase;
+                              letter-spacing: .08em; opacity: .6; margin-right: .4rem; }
+  .entwurf .kriterium.offen { opacity: .8; font-style: italic; }
+  .entwurf blockquote { margin: 0 0 .8rem; padding-left: .9rem; border-left: 2px solid currentColor;
+                        opacity: .7; font-size: .9rem; }
+  .entwurf .angelegt { font-size: .9rem; }
+</style>
