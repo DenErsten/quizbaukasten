@@ -23,7 +23,37 @@ anhand von `docs/pilotnutzer.md` und dem Gesprächsinhalt echten Namen zu und sc
 die Zuordnung oben ins Protokoll. Wenn du dir bei einem Sprecher nicht sicher
 bist, schreib `SPEAKER_01 (unklar)` — rate nicht.
 
-### 2. Protokoll schreiben
+### 2. Hinweise einlesen
+
+Lief während des Gesprächs die Live-Mitschrift, liegt neben dem Transkript
+eine Datei `aufnahmen/<datum>-hinweise.jsonl` — die Ausgabe von
+`scripts/ausloeser.py`. Jede Zeile ist ein Hinweis:
+
+```json
+{"zeit": 743.0, "zitat": "das muss schnell gehen",
+ "art": "mengenwort", "grund": "Mengenwort ohne Zahl: „schnell“",
+ "frage": "Schnell im Vergleich wozu?"}
+```
+
+Für jeden Hinweis: Sieh im Transkript ab dieser Zeitmarke nach, ob jemand
+nachgefragt hat und ob eine Antwort kam. Drei Fälle:
+
+- **Gefragt und beantwortet** — die Antwort gehört ins Protokoll, und die
+  Anforderung ist jetzt scharf. Oft wird daraus ein Issue.
+- **Gefragt, keine Antwort** — unter „Offene Punkte", mit der Person, die
+  sie schuldet.
+- **Nicht gefragt** — ebenfalls unter „Offene Punkte". Das ist der
+  wichtigste Fall und der, den man am leichtesten übersieht: Hier ist eine
+  Anforderung unscharf geblieben, und niemand hat es im Moment bemerkt.
+
+Rate nicht. Steht im Transkript keine erkennbare Nachfrage, ist die Antwort
+„nein" — auch wenn das Thema später beiläufig vorkam.
+
+Fehlt die Datei, entfällt der Abschnitt „Nachgefragt" im Protokoll ganz.
+Schreib ihn nicht leer hin: Ein leerer Abschnitt liest sich wie „es gab
+nichts zu fragen", und das ist etwas anderes als „es lief keine Mitschrift".
+
+### 3. Protokoll schreiben
 
 Neue Datei `docs/meetings/JJJJ-MM-TT-<thema>.md`, exakt diese Struktur:
 
@@ -44,6 +74,17 @@ Nur, was wirklich entschieden wurde. Jede Zeile: was, von wem, ab wann gültig.
 ## Offene Punkte
 Fragen, die im Raum stehen geblieben sind — mit der Person, die sie klären muss.
 
+## Nachgefragt
+Nur wenn eine Hinweis-Datei vorlag. Die Vorstufe zu „Nicht entschieden":
+Hier steht, wo eine Anforderung im Gespräch unscharf war — und ob jemand
+nachgehakt hat.
+
+| Zeit | Unscharf | Frage gestellt? | Antwort |
+|------|----------|-----------------|---------|
+
+Die Zeilen mit „nein" sind die wertvollen. Sie zeigen, was im Moment des
+Gesprächs niemandem aufgefallen ist.
+
 ## Nicht entschieden
 Themen, die besprochen wurden, ohne dass etwas herauskam. Dieser Abschnitt
 ist wichtiger als er aussieht: hier stehen die Dinge, die in vier Wochen
@@ -57,7 +98,7 @@ Regeln: Keine Interpretation im Protokoll. Wenn jemand „eigentlich müssten wi
 mal" gesagt hat, ist das keine Zusage — das gehört unter „Nicht entschieden".
 Nichts glätten, was unangenehm war.
 
-### 3. Draft-Issues
+### 4. Draft-Issues
 
 Für jede Zusage und jede Anforderung ein Issue:
 
@@ -91,19 +132,19 @@ kann, blockiert für immer — das ist an #1 dreimal passiert, bevor es auffiel.
 
 Trag die Issue-Nummern in die Zusagen-Tabelle des Protokolls nach.
 
-### 4. Kalender
+### 5. Kalender
 
 Für jede Zusage mit Datum einen Eintrag im Kalender `Projekte` anlegen,
 Titel `Zusage: <kurz> (#<issue>)`, Erinnerung zwei Tage vorher.
 
-### 5. Mail-Entwurf
+### 6. Mail-Entwurf
 
 Zusammenfassung für den Pilotnutzer — **als Entwurf**, nie senden. Ton nach
 `docs/pilotnutzer.md`. Aufbau: ein Satz Dank, die Entscheidungen als Liste, die
 Zusagen mit Terminen, die offenen Fragen als nummerierte Rückfragen. Höchstens
 200 Wörter. Kein „wir freuen uns auf die weitere Zusammenarbeit".
 
-### 6. Pull Request
+### 7. Pull Request
 
 Protokoll und Planänderungen in einen PR. Der PR-Text listet auf: welche
 Issues du angelegt hast, welche Kalendereinträge, wo der Mailentwurf liegt,
@@ -116,6 +157,8 @@ und **worüber Firat entscheiden muss**.
 - `docs/plan.md` ändern, weil im Meeting ein Termin genannt wurde — das ist
   eine Zeile in „Abweichungen" und ein eigener PR
 - Sprecher raten, die du nicht sicher zuordnen kannst
+- Einen Hinweis als „beantwortet" führen, weil das Thema später beiläufig
+  vorkam. Gefragt ist gefragt; alles andere ist „nein".
 - Ein Und-Kriterium formulieren, dessen Teile in beide Sorten fallen. Der
   Prüfer geht sie einzeln durch und blockiert, sobald ein Teil nicht am Diff
   belegt ist — zu Recht. Teile das Issue beim Schreiben, nicht hinterher.
