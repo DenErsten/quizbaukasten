@@ -140,6 +140,18 @@ function laeuftHtml(zustand) {
   );
 }
 
+/**
+ * Nach dem Gespraech.
+ *
+ * Hier steht bewusst KEIN Knopf zum Ableiten, obwohl #102 zunaechst einen
+ * hier vorsah: Der Test "keine Knoepfe mehr im Zustand beendet" aus #70
+ * verbietet Bedienelemente in diesem Zustand, und ein bestehender Test wird
+ * nicht entschaerft, damit etwas Neues hineinpasst (CLAUDE.md).
+ *
+ * Der Weg fuehrt stattdessen auf die Anforderungs-Seite. Dort steht der
+ * Knopf neben dem Satz, was beim Ableiten hinausgeht, und direkt ueber dem,
+ * was dabei herauskommt — das ist ohnehin die ehrlichere Stelle.
+ */
 function beendetHtml(zustand) {
   const anzahl = zustand.anzahlHinweise ?? 0;
   return (

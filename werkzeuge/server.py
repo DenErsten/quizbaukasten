@@ -62,6 +62,7 @@ AUFNAHMEN = WURZEL / "aufnahmen"
 # Werkzeug das, statt einen leeren Leitfaden zu zeigen.
 if str(WURZEL) not in sys.path:
     sys.path.insert(0, str(WURZEL))
+from scripts.anforderungen import ableiten, als_issue  # noqa: E402
 from scripts.leitfaden import lesen as leitfaden_lesen  # noqa: E402
 
 
@@ -324,6 +325,103 @@ class Aufnahme:
         }
 
 
+class Ableitung:
+    """
+    Der Schritt vom Transkript zu Anforderungs-Entwuerfen (#102).
+
+    Zwei Eigenschaften sind nicht Bequemlichkeit, sondern Regel aus
+    docs/plan.md, Abschnitt "Was den Rechner verlaesst":
+
+    1. Es passiert nur, wenn jemand `ableiten()` aufruft — nie beim Start,
+       nie nach dem Stoppen der Aufnahme, nie im Hintergrund.
+    2. Es entsteht kein Issue. `uebernehmen()` ist ein zweiter, eigener
+       Schritt, und den loest ein Mensch aus.
+
+    `ableiten_mit` und `anlegen_mit` sind einsetzbar, damit die Tests weder
+    das Abo noch GitHub brauchen.
+    """
+
+    def __init__(
+        self,
+        verwaltung: "Aufnahme",
+        ableiten_mit: Callable[..., list[dict]] = ableiten,
+        anlegen_mit: Callable[[str, str], str] | None = None,
+        punkte_lesen: Callable[[], list[dict]] = leitfaden_lesen,
+    ) -> None:
+        self._verwaltung = verwaltung
+        self._ableiten = ableiten_mit
+        self._anlegen = anlegen_mit
+        self._punkte_lesen = punkte_lesen
+        self._sperre = threading.Lock()
+        self._laeuft = False
+        self._fehler: str | None = None
+        self._entwuerfe: list[dict] = []
+        self._angelegt: dict[int, str] = {}
+        # Ohne dieses Feld sehen "noch nie abgeleitet" und "abgeleitet, nichts
+        # gefunden" in der Anzeige gleich aus — eine leere Liste (#99).
+        self._abgeleitet = False
+
+    def _stand(self) -> dict:
+        """Ohne Sperre — nur aufrufen, wer sie schon haelt."""
+        return {
+            "laeuft": self._laeuft,
+            "abgeleitet": self._abgeleitet,
+            "fehler": self._fehler,
+            "entwuerfe": list(self._entwuerfe),
+            "angelegt": {str(k): v for k, v in self._angelegt.items()},
+        }
+
+    def stand(self) -> dict:
+        with self._sperre:
+            return self._stand()
+
+    def ableiten(self) -> dict:
+        """Startet die Ableitung im Hintergrund. Zweimal druecken tut nichts."""
+        with self._sperre:
+            if self._laeuft:
+                return self._stand()
+            zeilen = self._verwaltung.transkript()
+            if not zeilen:
+                self._fehler = "Kein Transkript da. Erst ein Gespräch aufnehmen."
+                return self._stand()
+            self._laeuft = True
+            self._fehler = None
+            self._entwuerfe = []
+            self._angelegt = {}
+        threading.Thread(target=self._arbeiten, args=(zeilen,), daemon=True).start()
+        return self.stand()
+
+    def _arbeiten(self, zeilen: list[dict]) -> None:
+        try:
+            gefunden = self._ableiten(zeilen, self._punkte_lesen())
+        except Exception as fehler:  # noqa: BLE001
+            # Ein stiller Fehlschlag saehe aus wie "nichts gefunden". Genau
+            # dieser Unterschied hat in #99 einen Tag gekostet.
+            with self._sperre:
+                self._fehler = str(fehler)
+                self._laeuft = False
+            return
+        with self._sperre:
+            self._entwuerfe = gefunden
+            self._abgeleitet = True
+            self._laeuft = False
+
+    def uebernehmen(self, nummer: int) -> str:
+        """Macht aus genau einem Entwurf ein Issue — nach einem Klick."""
+        with self._sperre:
+            if nummer < 0 or nummer >= len(self._entwuerfe):
+                raise IndexError(f"Kein Entwurf Nummer {nummer}.")
+            if nummer in self._angelegt:
+                return self._angelegt[nummer]
+            entwurf = self._entwuerfe[nummer]
+
+        anlegen = self._anlegen or _freigabe_modul().issue_anlegen
+        url = anlegen(*als_issue(entwurf))
+        with self._sperre:
+            self._angelegt[nummer] = url
+        return url
+
+
 def _freigabe_modul():
     """
     Beim Aufruf `python3 werkzeuge/server.py` liegt werkzeuge/ selbst im
@@ -358,6 +456,9 @@ class Anfrage(SimpleHTTPRequestHandler):
             return
         if self.path == "/leitfaden":
             self._leitfaden()
+            return
+        if self.path == "/anforderungen":
+            self._json(self.server.ableitung.stand())  # type: ignore[attr-defined]
             return
         if self.path == "/freigaben":
             self._freigaben()
@@ -401,6 +502,12 @@ class Anfrage(SimpleHTTPRequestHandler):
             self.server.verwaltung.stop()  # type: ignore[attr-defined]
             self._json(self.server.verwaltung.status())  # type: ignore[attr-defined]
             return
+        if self.path == "/anforderungen/ableiten":
+            self._json(self.server.ableitung.ableiten())  # type: ignore[attr-defined]
+            return
+        if self.path.startswith("/anforderungen/uebernehmen/"):
+            self._uebernehmen()
+            return
         if self.path.startswith("/freigabe/") or self.path.startswith("/kommentar/"):
             self._handeln()
             return
@@ -411,6 +518,20 @@ class Anfrage(SimpleHTTPRequestHandler):
 
         try:
             self._json(freigabe.fortschritt())
+        except Exception as fehler:  # noqa: BLE001
+            self._json({"fehler": str(fehler)}, 502)
+
+    def _uebernehmen(self) -> None:
+        """Ein Entwurf, ein Issue, ein Klick. Fehler werden durchgereicht."""
+        try:
+            nummer = int(self.path.rsplit("/", 1)[-1])
+        except ValueError:
+            self.send_error(404)
+            return
+        try:
+            self._json({"url": self.server.ableitung.uebernehmen(nummer)})  # type: ignore[attr-defined]
+        except IndexError as fehler:
+            self._json({"fehler": str(fehler)}, 404)
         except Exception as fehler:  # noqa: BLE001
             self._json({"fehler": str(fehler)}, 502)
 
@@ -460,10 +581,13 @@ class Anfrage(SimpleHTTPRequestHandler):
         pass  # Zugriffe aufs Werkzeug sind kein Betriebslog
 
 
-def server_starten(verwaltung: Aufnahme, port: int = 0) -> ThreadingHTTPServer:
+def server_starten(
+    verwaltung: Aufnahme, port: int = 0, ableitung: Ableitung | None = None
+) -> ThreadingHTTPServer:
     """Baut den Server, bindet ihn nur an 127.0.0.1 — kein Port nach aussen."""
     server = ThreadingHTTPServer(("127.0.0.1", port), Anfrage)
     server.verwaltung = verwaltung  # type: ignore[attr-defined]
+    server.ableitung = ableitung or Ableitung(verwaltung)  # type: ignore[attr-defined]
     return server
 
 
