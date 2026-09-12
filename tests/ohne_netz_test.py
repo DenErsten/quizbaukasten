@@ -6,9 +6,17 @@ Die Oberflaeche muss ohne Netz funktionieren. Eine Web-Schrift oder eine
 Icon-Bibliothek faellt im Buero niemandem auf und genau im Meeting, in dem
 das WLAN klemmt, dann doch.
 
-Geprueft wird, was beim Anzeigen der Seite wirklich geladen wird: src- und
-href-Ziele im HTML, @import und url() im Stylesheet. Ein "http" in einem
-Kommentar oder in einem Python-Import ist kein Ladevorgang.
+Geprueft wird zweierlei:
+
+1. JEDE Datei unter werkzeuge/ — auch die Python-Dateien — auf Adressen, die
+   woanders hinzeigen als auf diesen Rechner.
+2. Was beim Anzeigen der Seite wirklich geladen wird: src- und href-Ziele im
+   HTML, @import und url() im Stylesheet, die Importe im JavaScript.
+
+Gesucht wird nach dem Schema "http://" bzw. "https://", nicht nach dem Wort
+"http". `from http.server import ...` ist keine Adresse, sondern ein
+Modulname; eine Regel, die daran haengenbleibt, wuerde beim naechsten Treffer
+abgeschaltet und schuetzte dann gar nichts mehr.
 """
 
 from __future__ import annotations
@@ -22,6 +30,41 @@ WERKZEUGE = Path(__file__).resolve().parent.parent / "werkzeuge"
 # src="..." und href="..." — beides laedt beim Zeichnen der Seite.
 ZIEL = re.compile(r'(?:src|href)\s*=\s*"([^"]*)"', re.IGNORECASE)
 EXTERN = re.compile(r"^(?:https?:)?//|^https?:", re.IGNORECASE)
+
+
+# Jede Adresse in einer Datei unter werkzeuge/, egal in welcher Sprache.
+ADRESSE = re.compile(r"https?://[^\s\"'<>)\]]+", re.IGNORECASE)
+EIGENER_RECHNER = ("http://127.0.0.1", "http://localhost", "https://127.0.0.1", "https://localhost")
+
+
+class KeineFremdenAdressen(unittest.TestCase):
+    """
+    Alle Dateien unter werkzeuge/, ohne Ausnahme.
+
+    Abnahmekriterium aus #106. Erlaubt ist genau eine Sorte Adresse: die auf
+    diesen Rechner. Alles andere ist entweder ein Ladevorgang oder wird
+    frueher oder spaeter einer.
+    """
+
+    def test_jede_datei_zeigt_nur_auf_diesen_rechner(self) -> None:
+        geprueft = 0
+        for datei in sorted(WERKZEUGE.rglob("*")):
+            if not datei.is_file():
+                continue
+            try:
+                text = datei.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            geprueft += 1
+            for adresse in ADRESSE.findall(text):
+                self.assertTrue(
+                    adresse.lower().startswith(EIGENER_RECHNER),
+                    f"{datei.name} nennt eine fremde Adresse: {adresse}",
+                )
+
+        # Ohne diese Zeile wuerde der Test auch dann gruen, wenn der Ordner
+        # leer waere oder der Pfad nicht mehr stimmt.
+        self.assertGreaterEqual(geprueft, 10, "Zu wenige Dateien geprüft — stimmt der Pfad noch?")
 
 
 class OhneNetz(unittest.TestCase):
