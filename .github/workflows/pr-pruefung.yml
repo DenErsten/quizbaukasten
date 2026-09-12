@@ -19,9 +19,19 @@ on:
   pull_request_review:
     types: [submitted, dismissed]
 
+# Einreihen statt abbrechen. Ein abgebrochener Lauf hinterlaesst Check-Runs
+# mit conclusion "cancelled", und die zaehlen fuer die Branch Protection nicht
+# als bestanden. Zwischen dem 11. und 12.09. musste ich sechsmal von Hand
+# "gh run rerun --failed" ausfuehren, damit ein PR mergen konnte, dessen
+# juengster Lauf vollstaendig gruen war. Das kostete je zwei bis fuenf Minuten
+# und schuetzte vor nichts.
+#
+# Der Preis ist Wartezeit statt Abbruch: Genehmigt jemand, waehrend noch ein
+# Lauf laeuft, stellt sich der neue an, statt den alten zu toeten. Er startet
+# spaeter und schreibt zuletzt — was genau die Reihenfolge ist, die man will.
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
