@@ -283,3 +283,7 @@ button:disabled {
   margin-top: 1.5rem;
   font-size: 0.85rem;
 }
+
+/* Laufende Checks: weder grün noch rot, sondern "noch nicht entschieden" (#95). */
+.laeuft { color: var(--gedaempft, #9fb5ad); }
+p.stand.laeuft { color: var(--akzent, #9fd3c0); }

@@ -176,3 +176,55 @@ class Abnahmekriterium(unittest.TestCase):
     def test_erkennt_ihr_fehlen(self) -> None:
         self.assertFalse(hat_abnahmekriterium("Nur Kontext, kein Kriterium"))
         self.assertFalse(hat_abnahmekriterium(""))
+
+
+class LaufendeChecks(unittest.TestCase):
+    """
+    #95: "conclusion: null" heisst "noch nicht entschieden". Wer das als
+    "kein Fehler" liest, gibt frei, bevor geprueft wurde.
+    """
+
+    def test_check_ohne_ergebnis_gilt_als_laufend(self) -> None:
+        """Fall 1."""
+        roh = json.dumps([{
+            "number": 9, "title": "PR", "body": "", "reviews": [],
+            "statusCheckRollup": [
+                {"name": "pruefen", "conclusion": "SUCCESS"},
+                {"name": "abnahme", "conclusion": None},
+                {"name": "review", "conclusion": ""},
+            ],
+            "files": [],
+        }])
+
+        pr = offene_prs(Aufzeichnung(roh))[0]
+
+        self.assertEqual(pr["laufende_checks"], ["abnahme", "review"])
+        self.assertEqual(pr["rote_checks"], [])
+
+    def test_fertige_checks_sind_nicht_laufend(self) -> None:
+        """Gegenprobe: Sonst gilt alles als laufend."""
+        roh = json.dumps([{
+            "number": 9, "title": "PR", "body": "", "reviews": [],
+            "statusCheckRollup": [{"name": "pruefen", "conclusion": "SUCCESS"}],
+            "files": [],
+        }])
+
+        self.assertEqual(offene_prs(Aufzeichnung(roh))[0]["laufende_checks"], [])
+
+    def test_laufende_laeufe_werden_gelesen(self) -> None:
+        from werkzeuge.freigabe import laufende_laeufe
+
+        roh = json.dumps([{
+            "displayTitle": "Ein PR", "workflowName": "PR-Prüfung",
+            "startedAt": "2026-09-12T14:00:00Z", "headBranch": "zweig",
+        }])
+
+        laeufe = laufende_laeufe(Aufzeichnung(roh))
+
+        self.assertEqual(laeufe[0]["workflow"], "PR-Prüfung")
+        self.assertEqual(laeufe[0]["zweig"], "zweig")
+
+    def test_nichts_laeuft_ist_eine_leere_liste(self) -> None:
+        from werkzeuge.freigabe import laufende_laeufe
+
+        self.assertEqual(laufende_laeufe(Aufzeichnung("[]")), [])

@@ -41,12 +41,37 @@ export function issueZuHtml(issue) {
   );
 }
 
-/** Rote Checks beim Namen nennen. Ein Knopf ohne diese Angabe lädt zum Wegsehen ein (#5). */
+/**
+ * Rote Checks beim Namen nennen. Ein Knopf ohne diese Angabe lädt zum
+ * Wegsehen ein (#5).
+ *
+ * Laufende zaehlen weder als gruen noch als rot: "conclusion: null" heisst
+ * "noch nicht entschieden". Wer das als "kein Fehler" liest, gibt frei,
+ * bevor geprueft wurde (#95).
+ */
 function checkStand(pr) {
+  const teile = [];
   if (pr.rote_checks?.length) {
-    return `<p class="warnung">Rot: ${pr.rote_checks.map(maskiert).join(", ")}</p>`;
+    teile.push(`<p class="warnung">Rot: ${pr.rote_checks.map(maskiert).join(", ")}</p>`);
   }
-  return `<p class="gut">Alle Checks grün</p>`;
+  if (pr.laufende_checks?.length) {
+    teile.push(`<p class="laeuft">Läuft noch: ${pr.laufende_checks.map(maskiert).join(", ")}</p>`);
+  }
+  if (!teile.length) {
+    teile.push(`<p class="gut">Alle Checks grün</p>`);
+  }
+  return teile.join("");
+}
+
+/** Die Zeile oben: Eine leere Liste sieht sonst aus wie "nichts zu tun". */
+export function laufZeile(laeufe) {
+  if (!laeufe?.length) {
+    return `<p class="stand">Es läuft gerade nichts.</p>`;
+  }
+  const namen = laeufe
+    .map((l) => `${maskiert(l.workflow)}${l.zweig ? ` (${maskiert(l.zweig)})` : ""}`)
+    .join(", ");
+  return `<p class="stand laeuft">${laeufe.length} Lauf${laeufe.length === 1 ? "" : "e"} in Arbeit: ${namen}</p>`;
 }
 
 export function prZuHtml(pr) {
@@ -70,6 +95,7 @@ export function konsoleZuHtml(daten) {
   const issues = daten.issues ?? [];
   const prs = daten.prs ?? [];
   return (
+    laufZeile(daten.laeufe) +
     `<section><h2>Warten auf Freigabe (${issues.length})</h2>` +
     (issues.length ? issues.map(issueZuHtml).join("") : `<p class="leer">Nichts offen.</p>`) +
     `</section>` +
