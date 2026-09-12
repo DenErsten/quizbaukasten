@@ -385,6 +385,7 @@ class Anfrage(SimpleHTTPRequestHandler):
 
         try:
             self._json({
+                "entscheidungen": freigabe.offene_entscheidungen(),
                 "issues": freigabe.offene_issues(),
                 "prs": freigabe.offene_prs(),
                 "laeufe": freigabe.laufende_laeufe(),
@@ -401,6 +402,9 @@ class Anfrage(SimpleHTTPRequestHandler):
             self.server.verwaltung.stop()  # type: ignore[attr-defined]
             self._json(self.server.verwaltung.status())  # type: ignore[attr-defined]
             return
+        if self.path.startswith("/entscheidung/"):
+            self._entscheiden()
+            return
         if self.path.startswith("/freigabe/") or self.path.startswith("/kommentar/"):
             self._handeln()
             return
@@ -411,6 +415,30 @@ class Anfrage(SimpleHTTPRequestHandler):
 
         try:
             self._json(freigabe.fortschritt())
+        except Exception as fehler:  # noqa: BLE001
+            self._json({"fehler": str(fehler)}, 502)
+
+    def _entscheiden(self) -> None:
+        """
+        /entscheidung/<nr>/<buchstabe> — schreibt die Wahl als Kommentar.
+
+        Setzt kein Label. Entscheiden und freigeben bleiben zwei Handgriffe
+        (#108).
+        """
+        teile = self.path.strip("/").split("/")
+        if len(teile) != 3:
+            self.send_error(404)
+            return
+        try:
+            nummer = int(teile[1])
+        except ValueError:
+            self.send_error(404)
+            return
+        try:
+            _freigabe_modul().entscheiden(nummer, teile[2])
+            self._json({"ok": True})
+        except ValueError as fehler:
+            self._json({"fehler": str(fehler)}, 400)
         except Exception as fehler:  # noqa: BLE001
             self._json({"fehler": str(fehler)}, 502)
 

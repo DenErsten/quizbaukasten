@@ -1,0 +1,191 @@
+"""
+Tests fuer die offenen Entscheidungen in der Freigabe-Konsole (#108).
+
+Kein Test ruft gh auf: `aufruf` ist ueberall einsetzbar. Geprueft wird vor
+allem die Grenze — ein Klick entscheidet, er gibt nicht frei.
+"""
+
+from __future__ import annotations
+
+import json
+import unittest
+
+from werkzeuge import freigabe
+
+MIT_BLOCK = """Kontext oben, der nicht dazugehört.
+
+## Entscheidung
+
+Soll der Text des Transkripts an Claude gehen?
+
+- **A** — Lokal bleiben. Nichts verlässt den Rechner.
+- **B** — Claude benutzen. Text geht raus, Ton nie.
+
+Empfehlung: B — lokal reicht die Qualität nicht für ein „fertig, wenn …".
+
+## fertig, wenn
+
+- **C** — steht im falschen Abschnitt
+"""
+
+
+class Lesen(unittest.TestCase):
+    def test_liest_frage_optionen_und_empfehlung(self) -> None:
+        e = freigabe.entscheidung_aus_text(MIT_BLOCK)
+
+        self.assertEqual(e["frage"], "Soll der Text des Transkripts an Claude gehen?")
+        self.assertEqual([o["buchstabe"] for o in e["optionen"]], ["A", "B"])
+        self.assertEqual(e["empfehlung"]["buchstabe"], "B")
+        self.assertIn("Qualität", e["empfehlung"]["grund"])
+
+    def test_nimmt_nur_den_eigenen_abschnitt(self) -> None:
+        """Eine Option unter 'fertig, wenn' ist keine Option."""
+        e = freigabe.entscheidung_aus_text(MIT_BLOCK)
+
+        self.assertNotIn("C", [o["buchstabe"] for o in e["optionen"]])
+
+    def test_ohne_block_gibt_es_nichts(self) -> None:
+        self.assertIsNone(freigabe.entscheidung_aus_text("Ein ganz normales Issue."))
+        self.assertIsNone(freigabe.entscheidung_aus_text(""))
+
+    def test_block_ohne_optionen_gibt_es_nicht(self) -> None:
+        """Eine Frage ohne Auswahl waere ein Knopf, der nirgendwohin führt."""
+        self.assertIsNone(freigabe.entscheidung_aus_text("## Entscheidung\n\nWas nun?\n"))
+
+    def test_empfehlung_darf_fehlen(self) -> None:
+        e = freigabe.entscheidung_aus_text("## Entscheidung\n\nF?\n\n- **A** — eins\n- **B** — zwei\n")
+
+        self.assertIsNone(e["empfehlung"])
+        self.assertEqual(len(e["optionen"]), 2)
+
+
+def _liste(issues: list[dict]):
+    return lambda befehl: json.dumps(issues)
+
+
+class Offene(unittest.TestCase):
+    ISSUE = {"number": 102, "title": "Frage", "body": MIT_BLOCK, "comments": []}
+
+    def test_zeigt_issues_mit_block(self) -> None:
+        offen = freigabe.offene_entscheidungen(aufruf=_liste([self.ISSUE]), menschen={"DenErsten"})
+
+        self.assertEqual(offen[0]["nummer"], 102)
+        self.assertEqual(offen[0]["empfehlung"]["buchstabe"], "B")
+
+    def test_ueberspringt_issues_ohne_block(self) -> None:
+        ohne = {"number": 7, "title": "X", "body": "nichts", "comments": []}
+        offen = freigabe.offene_entscheidungen(aufruf=_liste([ohne]), menschen={"DenErsten"})
+
+        self.assertEqual(offen, [])
+
+    def test_verschwindet_wenn_ein_mensch_geantwortet_hat(self) -> None:
+        beantwortet = dict(self.ISSUE, comments=[{"author": {"login": "DenErsten"}, "body": "B"}])
+        offen = freigabe.offene_entscheidungen(aufruf=_liste([beantwortet]), menschen={"DenErsten"})
+
+        self.assertEqual(offen, [])
+
+    def test_eine_antwort_vom_bot_zaehlt_nicht(self) -> None:
+        """
+        Sonst koennte sich die Kette ihre eigenen Fragen beantworten — genau
+        das, was Gate G2 verhindern soll.
+        """
+        vom_bot = dict(self.ISSUE, comments=[{"author": {"login": "quizberater"}, "body": "B"}])
+        offen = freigabe.offene_entscheidungen(aufruf=_liste([vom_bot]), menschen={"DenErsten"})
+
+        self.assertEqual(len(offen), 1)
+
+    def test_ein_langer_kommentar_zaehlt_nicht_als_antwort(self) -> None:
+        geplauder = dict(self.ISSUE, comments=[
+            {"author": {"login": "DenErsten"}, "body": "Bin mir noch unsicher, melde mich."},
+        ])
+        offen = freigabe.offene_entscheidungen(aufruf=_liste([geplauder]), menschen={"DenErsten"})
+
+        self.assertEqual(len(offen), 1)
+
+
+class Entscheiden(unittest.TestCase):
+    def test_schreibt_genau_einen_kommentar(self) -> None:
+        befehle: list = []
+        freigabe.entscheiden(102, "b", aufruf=lambda b: befehle.append(b) or "")
+
+        self.assertEqual(len(befehle), 1)
+        self.assertEqual(befehle[0], ["issue", "comment", "102", "--body", "B"])
+
+    def test_setzt_kein_label(self) -> None:
+        """
+        Entscheiden ist nicht freigeben. Waeren es ein Handgriff, waere eines
+        von beiden irgendwann versehentlich.
+        """
+        befehle: list = []
+        freigabe.entscheiden(102, "A", aufruf=lambda b: befehle.append(b) or "")
+
+        zusammen = " ".join(befehle[0])
+        self.assertNotIn("--add-label", zusammen)
+        self.assertNotIn("status:freigegeben", zusammen)
+        self.assertNotIn("edit", zusammen)
+
+    def test_weist_unsinn_ab_ohne_etwas_zu_schreiben(self) -> None:
+        befehle: list = []
+        for schlecht in ["", "AB", "1", "ja", "--add-label"]:
+            with self.assertRaises(ValueError, msg=schlecht):
+                freigabe.entscheiden(102, schlecht, aufruf=lambda b: befehle.append(b) or "")
+
+        self.assertEqual(befehle, [])
+
+
+class MenschenListe(unittest.TestCase):
+    def test_kommt_aus_derselben_datei_wie_gate_g3(self) -> None:
+        """Zwei Listen von Menschen liefen frueher oder spaeter auseinander."""
+        from scripts.pfad_pruefung import MENSCHENDATEI as g3
+
+        self.assertEqual(freigabe.MENSCHENDATEI.resolve(), g3.resolve())
+
+    def test_enthaelt_firat(self) -> None:
+        self.assertIn("DenErsten", freigabe._menschen())
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class CodebloeckeZaehlenNicht(unittest.TestCase):
+    """
+    Wer ueber die Form schreibt, benutzt sie nicht.
+
+    Beim ersten Versuch las der Parser den Beispielblock aus #108 als echte
+    Entscheidung — die Anleitung wurde selbst zu einer Frage in der Konsole.
+    Dasselbe Muster wie bei Gate G2 am 2026-09-12, wo "Refs #31" in einem
+    Codeblock als echte Referenz zaehlte.
+    """
+
+    ANLEITUNG = """So schreibt man eine Entscheidung:
+
+```markdown
+## Entscheidung
+
+Beispielfrage?
+
+- **A** — eins
+- **B** — zwei
+
+Empfehlung: A — weil.
+```
+
+Mehr ist es nicht.
+"""
+
+    def test_ein_beispiel_im_codeblock_ist_keine_entscheidung(self) -> None:
+        self.assertIsNone(freigabe.entscheidung_aus_text(self.ANLEITUNG))
+
+    def test_eine_echte_entscheidung_neben_einem_beispiel_zaehlt(self) -> None:
+        text = self.ANLEITUNG + "\n## Entscheidung\n\nEcht?\n\n- **A** — ja\n- **B** — nein\n"
+        e = freigabe.entscheidung_aus_text(text)
+
+        self.assertEqual(e["frage"], "Echt?")
+        self.assertEqual([o["buchstabe"] for o in e["optionen"]], ["A", "B"])
+
+    def test_option_im_codeblock_landet_nicht_in_einer_echten_frage(self) -> None:
+        text = "## Entscheidung\n\nF?\n\n- **A** — echt\n\n```\n- **Z** — nur Beispiel\n```\n"
+        e = freigabe.entscheidung_aus_text(text)
+
+        self.assertEqual([o["buchstabe"] for o in e["optionen"]], ["A"])
