@@ -215,20 +215,53 @@ class WegEntscheidungen(unittest.TestCase):
         self.thread.join(timeout=5)
         self.server.server_close()
 
-    def test_der_weg_existiert_und_liefert_eine_liste(self) -> None:
+    def test_der_weg_existiert_und_liefert_die_liste(self) -> None:
+        """
+        Mit Attrappe statt echtem gh: Auf dem Bauserver gibt es keine
+        Anmeldung, und ein Test, der Netz braucht, prueft das Netz statt den
+        Code. Beim ersten Versuch schlug genau das fehl.
+        """
         import urllib.request
+        from unittest.mock import patch
 
-        with urllib.request.urlopen(f"{self.basis}/entscheidungen", timeout=20) as antwort:
-            self.assertEqual(antwort.status, 200)
-            daten = json.loads(antwort.read())
+        from werkzeuge import server
+
+        class Attrappe:
+            @staticmethod
+            def offene_entscheidungen():
+                return [{"nummer": 1, "titel": "T", "frage": "F?",
+                         "optionen": [{"buchstabe": "A", "text": "eins"}],
+                         "empfehlung": None}]
+
+        with patch.object(server, "_freigabe_modul", lambda: Attrappe):
+            with urllib.request.urlopen(f"{self.basis}/entscheidungen", timeout=20) as antwort:
+                self.assertEqual(antwort.status, 200)
+                daten = json.loads(antwort.read())
 
         # Eine Liste, auch wenn gerade nichts offen ist. Ein Fehlerobjekt
         # waere hier das Muster aus #99: sieht aus wie "nichts offen".
-        self.assertIsInstance(daten, (list, dict))
-        if isinstance(daten, list):
-            for e in daten:
-                self.assertIn("optionen", e)
-                self.assertIn("nummer", e)
+        self.assertIsInstance(daten, list)
+        self.assertEqual(daten[0]["nummer"], 1)
+        self.assertIn("optionen", daten[0])
+
+    def test_ein_fehler_beim_holen_wird_gemeldet_statt_als_leere_liste(self) -> None:
+        import urllib.error
+        import urllib.request
+        from unittest.mock import patch
+
+        from werkzeuge import server
+
+        class Kaputt:
+            @staticmethod
+            def offene_entscheidungen():
+                raise RuntimeError("gh ist nicht angemeldet")
+
+        with patch.object(server, "_freigabe_modul", lambda: Kaputt):
+            with self.assertRaises(urllib.error.HTTPError) as fehler:
+                urllib.request.urlopen(f"{self.basis}/entscheidungen", timeout=20)
+
+        self.assertEqual(fehler.exception.code, 502)
+        self.assertIn("nicht angemeldet", fehler.exception.read().decode())
 
     def test_freigaben_traegt_die_entscheidungen_nicht_mehr(self) -> None:
         """Eine Quelle, nicht zwei — sonst laufen sie auseinander."""
