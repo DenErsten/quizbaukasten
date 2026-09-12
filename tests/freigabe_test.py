@@ -228,3 +228,4 @@ class LaufendeChecks(unittest.TestCase):
         from werkzeuge.freigabe import laufende_laeufe
 
         self.assertEqual(laufende_laeufe(Aufzeichnung("[]")), [])
+

@@ -123,6 +123,74 @@ def laufende_laeufe(aufruf: Aufruf = _gh) -> list[dict]:
     } for r in roh]
 
 
+# --- Fortschritt (#73) ----------------------------------------------------
+
+def _stand(labels: set[str], offene_pr_issues: set[int], nummer: int, zu: bool) -> str:
+    """
+    Ein Issue hat genau einen Stand.
+
+    Die Reihenfolge ist die Aussage: Ein Issue mit offenem PR ist "in Arbeit",
+    auch wenn es freigegeben ist — sonst staende es fuer immer unter
+    "freigegeben, nichts passiert".
+    """
+    if "art:pruefung" in labels:
+        return "geschlossen" if zu else "pruefung"
+    if zu:
+        return "geschlossen"
+    if nummer in offene_pr_issues:
+        return "in_arbeit"
+    if "status:freigegeben" in labels:
+        return "freigegeben"
+    return "vorgeschlagen"
+
+
+def fortschritt(aufruf: Aufruf = _gh) -> dict:
+    """
+    Was aus jeder Anforderung geworden ist, je Meilenstein.
+
+    Keine eigene Buchfuehrung: Die Wahrheit steht in den Issues, hier wird
+    nur gezaehlt.
+    """
+    issues = json.loads(aufruf([
+        "issue", "list", "--state", "all", "--limit", "200",
+        "--json", "number,title,labels,milestone,state",
+    ]) or "[]")
+    prs = json.loads(aufruf([
+        "pr", "list", "--state", "open", "--limit", "100", "--json", "body",
+    ]) or "[]")
+
+    mit_pr = set()
+    for p in prs:
+        for treffer in re.finditer(r"(?im)^\s*(?:refs|closes|fixes)\s+#(\d+)", p.get("body") or ""):
+            mit_pr.add(int(treffer.group(1)))
+
+    nach_meilenstein: dict[str, list[dict]] = {}
+    for i in issues:
+        labels = {l["name"] for l in i.get("labels", [])}
+        if "lagebericht" in labels:
+            continue  # Automatisch erzeugte Uebersichten sind keine Arbeit.
+        meilenstein = (i.get("milestone") or {}).get("title") or "ohne Meilenstein"
+        nach_meilenstein.setdefault(meilenstein, []).append({
+            "nummer": i["number"],
+            "titel": i["title"],
+            "stand": _stand(labels, mit_pr, i["number"], i.get("state") == "CLOSED"),
+        })
+
+    return {
+        "meilensteine": [
+            {
+                "titel": name,
+                "anforderungen": sorted(eintraege, key=lambda e: -e["nummer"]),
+                "zaehlung": {
+                    stand: sum(1 for e in eintraege if e["stand"] == stand)
+                    for stand in ("vorgeschlagen", "freigegeben", "in_arbeit", "geschlossen", "pruefung")
+                },
+            }
+            for name, eintraege in sorted(nach_meilenstein.items())
+        ]
+    }
+
+
 def issue_freigeben(nummer: int, aufruf: Aufruf = _gh) -> None:
     """Gate G2. Nur ein Mensch darf das — deshalb ohne Bot-Token."""
     aufruf(["issue", "edit", str(nummer), "--add-label", "status:freigegeben"])
