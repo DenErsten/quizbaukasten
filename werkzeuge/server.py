@@ -56,6 +56,14 @@ except ImportError:  # pragma: no cover
     MODELL = "mlx-community/whisper-small-mlx"
 AUFNAHMEN = WURZEL / "aufnahmen"
 
+# Der Leitfaden hat bewusst KEINEN Ersatzwert im Code. Er steht in
+# docs/leitfaden.md und nirgends sonst; eine Kopie hier waere genau die zweite
+# Wahrheit, die der Punkt vermeiden soll (#101). Fehlt die Datei, sagt das
+# Werkzeug das, statt einen leeren Leitfaden zu zeigen.
+if str(WURZEL) not in sys.path:
+    sys.path.insert(0, str(WURZEL))
+from scripts.leitfaden import lesen as leitfaden_lesen  # noqa: E402
+
 
 class Prozess(Protocol):
     """Das Stueck Schnittstelle von subprocess.Popen, das Aufnahme braucht."""
@@ -348,6 +356,9 @@ class Anfrage(SimpleHTTPRequestHandler):
         if self.path == "/transkript":
             self._json(self.server.verwaltung.transkript())  # type: ignore[attr-defined]
             return
+        if self.path == "/leitfaden":
+            self._leitfaden()
+            return
         if self.path == "/freigaben":
             self._freigaben()
             return
@@ -355,6 +366,19 @@ class Anfrage(SimpleHTTPRequestHandler):
             self._fortschritt()
             return
         super().do_GET()
+
+    def _leitfaden(self) -> None:
+        """
+        Die fuenf Fragen aus docs/leitfaden.md.
+
+        Ein Fehler wird durchgereicht statt verschluckt: Wer im Gespraech eine
+        leere Spalte sieht, soll wissen, ob nichts da ist oder nichts gelesen
+        werden konnte.
+        """
+        try:
+            self._json(leitfaden_lesen())
+        except Exception as fehler:  # noqa: BLE001
+            self._json({"fehler": str(fehler)}, 502)
 
     def _freigaben(self) -> None:
         freigabe = _freigabe_modul()

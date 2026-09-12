@@ -14,13 +14,16 @@
     <a href="fortschritt.html">Fortschritt</a>
   </nav>
 </header>
-<main>
+<main class="arbeitsflaeche">
 <div id="aufnahme"></div>
+<aside id="leitfaden"></aside>
 </main>
 <script type="module">
   import { ZUSTAND, naechsterZustand, zustandZuHtml } from "./aufnahme.js";
+  import { leitfadenHtml } from "./leitfaden.js";
 
   const container = document.getElementById("aufnahme");
+  const leitfadenFeld = document.getElementById("leitfaden");
   let zustand = { art: ZUSTAND.BEREIT };
   let gestartetUm = null;
   let liefZuletzt = false;
@@ -81,6 +84,35 @@
     rendern();
   }
 
+  // Der Leitfaden wird einmal geholt und nur neu gezeichnet, wenn jemand
+  // etwas abhakt. Haengte er am Sekundentakt der Aufnahme, sprängen die
+  // Haken bei jedem Zeichnen zurück.
+  let leitfaden = [];
+  const erledigt = new Set();
+
+  function leitfadenZeichnen() {
+    leitfadenFeld.innerHTML = leitfadenHtml(leitfaden, erledigt);
+    for (const kasten of leitfadenFeld.querySelectorAll("input[data-punkt]")) {
+      kasten.addEventListener("change", () => {
+        const nr = Number(kasten.dataset.punkt);
+        if (kasten.checked) erledigt.add(nr);
+        else erledigt.delete(nr);
+        leitfadenZeichnen();
+      });
+    }
+  }
+
+  async function leitfadenHolen() {
+    try {
+      const antwort = await fetch("/leitfaden", { cache: "no-store" });
+      leitfaden = await antwort.json();
+    } catch (fehler) {
+      leitfaden = { fehler: String(fehler.message ?? fehler) };
+    }
+    leitfadenZeichnen();
+  }
+
+  leitfadenHolen();
   aktualisieren();
   setInterval(aktualisieren, 1000);
 </script>
@@ -88,6 +120,28 @@
 </html>
 
 <style>
+  /* Aufnahme links, Leitfaden rechts — bei schmalem Fenster untereinander. */
+  .arbeitsflaeche { display: grid; grid-template-columns: minmax(0, 1fr) 21rem; gap: 2rem;
+                    align-items: start; }
+  .leitfaden .titel { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em;
+                      opacity: .6; margin: 0 0 .75rem; }
+  .leitfaden ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .9rem; }
+  .leitfaden .punkt { border-left: 2px solid currentColor; padding-left: .75rem; opacity: .95; }
+  .leitfaden .punkt.erledigt { opacity: .45; }
+  .leitfaden .punkt.erledigt .frage { text-decoration: line-through; }
+  .leitfaden label { display: flex; gap: .5rem; align-items: baseline; cursor: pointer; }
+  .leitfaden .frage { font-size: .95rem; }
+  .leitfaden .fuellt { margin: .25rem 0 0 1.4rem; font-size: .8rem; opacity: .6; }
+  .leitfaden .achtung { margin: .25rem 0 0 1.4rem; font-size: .8rem; }
+  .leitfaden .achtung summary { cursor: pointer; opacity: .6; }
+  .leitfaden .achtung p { margin: .35rem 0 0; opacity: .75; }
+  .leitfaden .stand { margin: 1rem 0 0; font-size: .85rem; opacity: .7; }
+  .leitfaden .stand.vollstaendig { opacity: 1; }
+  .leitfaden .fehler, .leitfaden .leer { font-size: .85rem; opacity: .7; }
+  @media (max-width: 900px) {
+    .arbeitsflaeche { grid-template-columns: 1fr; }
+  }
+
   /* Das Gehoerte neben der Arbeit — bei schmalem Fenster darueber. */
   .aufnahme-laeuft { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
   .aufnahme-laeuft .zeit, .aufnahme-laeuft > .knoepfe { grid-column: 1 / -1; }

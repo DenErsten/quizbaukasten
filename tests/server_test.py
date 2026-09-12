@@ -453,3 +453,41 @@ class TranskriptWeg(unittest.TestCase):
 
         self.assertNotEqual(a._transkriptdatei(), a._datei())
         self.assertIn("transkript", a._transkriptdatei().name)
+
+
+class LeitfadenWeg(unittest.TestCase):
+    """
+    Der Weg /leitfaden (#101).
+
+    Geprueft wird nicht der Wortlaut — der darf sich aendern —, sondern dass
+    der Server wirklich docs/leitfaden.md ausliefert und nicht eine Kopie im
+    Code. Deshalb der Vergleich mit dem, was der Parser aus der Datei liest.
+    """
+
+    def setUp(self) -> None:
+        self.verwaltung = Aufnahme(prozess_starten=lambda: GenuegsamerProzess())
+        self.server = server_starten(self.verwaltung, port=0)
+        self.basis = f"http://127.0.0.1:{self.server.server_port}"
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def tearDown(self) -> None:
+        self.server.shutdown()
+        self.thread.join(timeout=5)
+        self.server.server_close()
+
+    def test_liefert_genau_das_was_in_docs_leitfaden_md_steht(self) -> None:
+        from scripts.leitfaden import lesen
+
+        with urllib.request.urlopen(f"{self.basis}/leitfaden", timeout=5) as antwort:
+            geliefert = json.loads(antwort.read())
+
+        self.assertEqual(geliefert, lesen())
+
+    def test_jeder_punkt_hat_eine_frage(self) -> None:
+        with urllib.request.urlopen(f"{self.basis}/leitfaden", timeout=5) as antwort:
+            punkte = json.loads(antwort.read())
+
+        self.assertTrue(punkte)
+        for punkt in punkte:
+            self.assertTrue(punkt["frage"].strip(), punkt)
