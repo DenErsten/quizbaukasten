@@ -14,6 +14,12 @@ Wer ein Projektgespräch führt, soll danach geprüfte Anforderungen im Repo
 haben statt einer Tonaufnahme, die niemand mehr abhört — und sie im selben
 Werkzeug nachfragen und freigeben können, in dem sie entstanden sind.
 
+Das Werkzeug **führt** dieses Gespräch, es kommentiert es nicht. Es fragt der
+Reihe nach, hakt nach, wenn es etwas nicht verstanden hat, und hört auf,
+bevor es zu genau wird. Und es tut das nicht einmal, sondern in Runden: erst
+der grobe Rahmen, dann ein Plan, dann gebautes Produkt, dann Rückmeldung —
+und von dort wieder von vorn.
+
 ## Für wen zuerst
 
 Projektmanager in kleinen Teams, die Anforderungen aus Gesprächen gewinnen
@@ -30,6 +36,8 @@ Nutzer von außen ist offen — siehe „Offene Punkte".
 - Ein eigener Anforderungs-Speicher — die Wahrheit steht in GitHub-Issues
 - Aufnahme in der Cloud. Ton verlässt den Rechner nie
 - Automatische Freigabe von Anforderungen. Gate G2 bleibt beim Menschen
+- Einwürfe mitten im Satz. Das Werkzeug fragt in Pausen, nicht dazwischen
+- Ein Erstgespräch, das ins Detail geht — der erste Durchgang klärt den Rahmen
 - Mail, Kalender, Kontakte (war Block 02, zurückgestellt am 2026-09-12, #3)
 
 ## Was uns eng macht
@@ -70,6 +78,33 @@ das Werkzeug zu verlassen.
 
 ---
 
+## Die Runde
+
+Ein Gespräch reicht nicht, und ein langes Gespräch erst recht nicht. Wer am
+Anfang alles fragt, bekommt Antworten auf Fragen, die noch niemand beurteilen
+kann — der Gesprächspartner sieht ja nichts. Deshalb arbeitet das Werkzeug in
+Runden:
+
+1. **Erstgespräch — der Rahmen.** Kurz. Wofür, für wen, was gehört nicht
+   dazu, woran merkt man, dass es gut ist. Keine Details, keine Felder, keine
+   Bildschirme. Wer hier schon Masken bespricht, bespricht ein Produkt, das
+   noch niemand gesehen hat.
+2. **Projektplan.** Aus dem Rahmen entsteht ein Vorschlag: Meilensteine, jeder
+   etwas, das man vorführen und beurteilen kann. Der Plan ist ein Vorschlag,
+   kein Beschluss — er wird freigegeben wie alles andere.
+3. **Bauen.** Der bestehende Weg: Issue, Agent, vier Checks, Merge.
+4. **Produkt-Review.** Was gebaut wurde, wird gezeigt. Nicht beschrieben.
+5. **Rückmeldung.** Direkt danach, als Gespräch, mit demselben Werkzeug — und
+   damit ist Runde 1 zu Ende und Runde 2 fängt an, mit einem
+   Gesprächspartner, der diesmal etwas gesehen hat.
+
+Was daran hängt: Jede Runde ist kurz genug, dass eine falsche Annahme
+höchstens eine Runde kostet. Ein Erstgespräch, das drei Stunden dauert und
+alles klärt, klärt in Wahrheit nichts — es schreibt nur Vermutungen auf, die
+niemand prüfen konnte.
+
+---
+
 ## Meilensteine
 
 | # | Meilenstein | Abnahmekriterium (ein Projektmanager kann …) | Ziel | Status |
@@ -77,6 +112,9 @@ das Werkzeug zu verlassen.
 | P1 | Aus dem Gespräch werden Anforderungen | … eine Aufnahme in der Oberfläche starten und stoppen, und findet danach die abgeleiteten Anforderungen als Issues mit `status:vorschlag` im Repo | | offen |
 | P2 | Der Projektmanager entscheidet | … zu jeder Anforderung eine Rückfrage stellen und sie freigeben — in derselben Oberfläche, in der sie entstand | | offen |
 | P3 | Der Fortschritt ist sichtbar | … sehen, was aus jeder Anforderung geworden ist: offen, in Arbeit, gemergt | | offen |
+| P4 | Das Werkzeug führt das Gespräch | … ein Erstgespräch führen, in dem das Werkzeug die Fragen stellt, in Pausen nachfragt und von selbst aufhört, bevor es ins Detail geht | | offen |
+| P5 | Aus dem Rahmen wird ein Plan | … nach dem Erstgespräch einen vorgeschlagenen Projektplan mit Meilensteinen sehen und freigeben | | offen |
+| P6 | Die Runde schließt sich | … nach einem Produkt-Review eine Rückmeldung aufnehmen, aus der die nächsten Anforderungen entstehen | | offen |
 
 Jeder Meilenstein endet mit einer **Vorführung an einem echten Gespräch** —
 nicht an einer Beispieldatei. Kein Meilenstein gilt als erledigt, weil der
@@ -115,8 +153,17 @@ Produkt. Was ihm zugesagt wurde, gilt trotzdem.
 - **A2:** Lokale Spracherkennung ist gut genug, um Anforderungen zu erkennen.
   Ungeprüft: Bisher lief sie nur gegen erzeugte Testdateien, nie gegen ein
   echtes Gespräch.
-- **A3:** Die Hinweise aus `ausloeser.py` treffen oft genug, um zu nützen,
-  und selten genug, um nicht zu stören. Ungeprüft, siehe #39.
+- **A3:** ~~Die Hinweise aus `ausloeser.py` treffen oft genug, um zu nützen,
+  und selten genug, um nicht zu stören.~~ **Hinfällig am 2026-09-12.** Nicht
+  widerlegt, sondern überholt: Firat will keinen Zwischenrufer, sondern einen
+  Gesprächsführer. Die Frage, ob ein Einwurf im richtigen Moment kommt,
+  stellt sich nicht mehr, wenn gar nicht eingeworfen wird.
+- **A6:** Ein geführtes Gespräch mit fünf Fragen und höchstens einer
+  Rückfrage je Frage liefert einen brauchbaren Rahmen. Ungeprüft. Kippt das,
+  ist es entweder zu wenig (der Rahmen bleibt leer) oder der Leitfaden ist
+  die falsche Struktur.
+- **A7:** Der Gesprächspartner kann nach einem Produkt-Review mehr sagen als
+  davor. Darauf steht die ganze Runde. Kippt das, sind Runden nur Aufwand.
 - **A4:** Wer das Werkzeug benutzt, arbeitet ohnehin mit GitHub. Sonst ist
   „Anforderung = Issue" eine Zumutung statt einer Vereinfachung.
 - **A5:** Aus Gesprächstext lassen sich Anforderungen ableiten, die ein
@@ -137,3 +184,4 @@ Produkt. Was ihm zugesagt wurde, gilt trotzdem.
 |-------|---------------|---------|----------|----------|--------------|
 | 2026-09-12 | Produkt gewechselt: Protokoll-Werkzeug statt Quizbaukasten | Beim Aufsetzen des Prozesses zeigte sich, dass das Werkzeug selbst das Ergebnis ist. Der Quizbaukasten war der Testfall, an dem es geprüft wurde. | Quizbaukasten wird Testfall, Werkzeug wird Produkt | Zwei Produkte, zwei Pläne | **A**, von Firat am 2026-09-12 |
 | 2026-09-12 | Text verlässt den Rechner: Anforderungen werden von Claude abgeleitet | Lokal bliebe die Qualität unter dem, was ein „fertig, wenn …" braucht. Ein Ableitungsschritt, der schlechte Anforderungen liefert, ist schlimmer als keiner — man sieht ihm an, dass er lief, nicht dass er danebenlag. | Lokales Modell, Plan bleibt unverändert | Claude über das vorhandene Abo, Plan wird präzisiert | **B**, von Firat am 2026-09-12, #102 |
+| 2026-09-12 | Vom Zwischenruf zum geführten Interview, und von einem Gespräch zu Runden | Der Zwischenruf unterbricht mitten im Satz, und ein einzelnes Gespräch fragt nach Dingen, die der Gesprächspartner ohne gebautes Produkt nicht beurteilen kann. | Zwischenruf verbessern, ein Gespräch bleibt ein Gespräch | Werkzeug führt das Interview, Runden aus Plan, Bauen, Review und Rückmeldung | **B**, von Firat am 2026-09-12 |
