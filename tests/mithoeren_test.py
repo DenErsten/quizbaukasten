@@ -214,3 +214,29 @@ class KeinTonverlust(unittest.TestCase):
         zeilen = list(strom([(0.0, b"\x00")], lambda _: "gesagt"))
 
         self.assertEqual([z for z in zeilen if z.get("art") == "rueckstand"], [])
+
+
+class ModellWirdGewaehlt(unittest.TestCase):
+    """
+    #84: Ohne Angabe nimmt mlx_whisper "whisper-tiny", das kleinste Modell.
+    Eine Minute Deutsch ergab damit eine Zeile Kauderwelsch.
+    """
+
+    def test_modell_steht_als_konstante_im_modul(self) -> None:
+        from scripts.mithoeren import MODELL
+
+        self.assertTrue(MODELL, "Ein Modell muss ausdrücklich benannt sein")
+        self.assertNotIn("tiny", MODELL, "tiny reicht für Deutsch nicht")
+
+    def test_erkennung_nimmt_das_modell_entgegen(self) -> None:
+        """
+        Wer ein anderes Modell prüfen will, soll es übergeben können, ohne
+        die Konstante zu ändern.
+        """
+        import inspect
+
+        from scripts.mithoeren import MODELL, erkennung_whisper
+
+        p = inspect.signature(erkennung_whisper).parameters
+        self.assertIn("modell", p)
+        self.assertEqual(p["modell"].default, MODELL)

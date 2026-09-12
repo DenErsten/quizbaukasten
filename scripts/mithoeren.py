@@ -93,6 +93,18 @@ def stuecke_vom_mikrofon(sekunden: float = 5.0) -> Iterator[Stueck]:
 # hinken die Hinweise dem Gespraech spuerbar hinterher.
 RUECKSTAND_AB = 3
 
+# Ausdruecklich, nicht die Voreinstellung der Bibliothek. mlx_whisper nimmt
+# ohne Angabe "whisper-tiny" — das kleinste verfuegbare Modell. Eine Minute
+# Deutsch ergab damit genau eine Zeile Kauderwelsch: "Dieses Themen wie die
+# anderen spielen, koennen besten KI-Geschuechermel." (#84)
+#
+# "small" ist der uebliche Kompromiss: deutlich besser als tiny, auf Apple
+# Silicon noch schnell genug fuer Stuecke von fuenf Sekunden. Wer wechseln
+# will, aendert diese eine Zeile — und genau deshalb steht sie hier und
+# nicht im Aufruf.
+MODELL = "mlx-community/whisper-small-mlx"
+MODELL_FASTER = "small"
+
 
 class Puffer:
     """
@@ -140,8 +152,14 @@ class Puffer:
             yield stueck
 
 
-def erkennung_whisper() -> Erkennung:
-    """Lokale Erkennung. Import spaet — die CI hat kein Whisper."""
+def erkennung_whisper(modell: str = MODELL) -> Erkennung:
+    """
+    Lokale Erkennung. Import spaet — die CI hat kein Whisper.
+
+    Das Modell wird nicht von Hand zwischengespeichert: mlx_whisper haelt es
+    in ModelHolder und laedt nur nach, wenn sich der Pfad aendert. Ich hatte
+    in #84 behauptet, es werde je Stueck neu geladen — das stimmt nicht.
+    """
     try:
         import mlx_whisper  # noqa: PLC0415
 
@@ -150,7 +168,9 @@ def erkennung_whisper() -> Erkennung:
 
             tonspur = numpy.frombuffer(daten, dtype=numpy.int16).astype(numpy.float32)
             tonspur /= 32768.0
-            ergebnis = mlx_whisper.transcribe(tonspur, language="de")
+            ergebnis = mlx_whisper.transcribe(
+                tonspur, language="de", path_or_hf_repo=modell
+            )
             return str(ergebnis.get("text", ""))
 
         return erkennen
@@ -159,7 +179,7 @@ def erkennung_whisper() -> Erkennung:
 
     from faster_whisper import WhisperModel  # noqa: PLC0415
 
-    modell = WhisperModel("small", device="cpu", compute_type="int8")
+    modell = WhisperModel(MODELL_FASTER, device="cpu", compute_type="int8")
 
     def erkennen(daten: bytes) -> str:
         import numpy  # noqa: PLC0415
