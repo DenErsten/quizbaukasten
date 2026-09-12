@@ -122,15 +122,34 @@ def strom(
     stuecke: Iterable[Stueck],
     erkennen: Erkennung,
     mitschnitt: Path | None = None,
+    transkript: Path | None = None,
 ) -> Iterator[dict]:
     """
     Macht aus Audio-Stuecken einen Strom erkannter Saetze.
 
     Stille erzeugt keine Zeile — auch keine leere. Wer den Strom liest, soll
     zaehlen koennen, was gesagt wurde, ohne Leerzeilen auszusortieren.
+
+    Ist `transkript` gesetzt, wird jeder erkannte Satz zusaetzlich dort
+    abgelegt. Ohne das verschwindet alles, was kein Hinweis wird — und
+    niemand kann unterscheiden, ob nichts gesagt wurde oder nichts gehoert
+    (#81). Das Werkzeug heisst Protokoll-Werkzeug; es braucht ein Protokoll.
+
+    Ein Transkript, das sich nicht schreiben laesst, bricht die Aufnahme
+    NICHT ab. Ein Gespraech laesst sich nicht wiederholen — eine Datei
+    schon.
     """
     mitschreiber = None
+    mitschrift = None
     try:
+        if transkript is not None:
+            try:
+                transkript.parent.mkdir(parents=True, exist_ok=True)
+                mitschrift = transkript.open("a", encoding="utf-8")
+            except OSError as fehler:
+                print(f"Transkript nicht schreibbar, laeuft ohne: {fehler}",
+                      file=sys.stderr)
+
         if mitschnitt is not None:
             mitschnitt.parent.mkdir(parents=True, exist_ok=True)
             mitschreiber = wave.open(str(mitschnitt), "wb")
@@ -144,16 +163,35 @@ def strom(
             text = (erkennen(daten) or "").strip()
             if not text:
                 continue
-            yield {"zeit": round(zeit, 2), "text": text}
+
+            zeile = {"zeit": round(zeit, 2), "text": text}
+            if mitschrift is not None:
+                try:
+                    mitschrift.write(json.dumps(zeile, ensure_ascii=False) + "\n")
+                    mitschrift.flush()  # fortlaufend, nicht am Ende auf einmal
+                except OSError as fehler:
+                    print(f"Transkript nicht schreibbar, laeuft ohne: {fehler}",
+                          file=sys.stderr)
+                    mitschrift = None
+            yield zeile
     finally:
         if mitschreiber is not None:
             mitschreiber.close()
+        if mitschrift is not None:
+            mitschrift.close()
 
 
 def main() -> int:
     zerleger = argparse.ArgumentParser(description="Laufende Mitschrift, lokal.")
     zerleger.add_argument("--datei", type=Path, help="WAV statt Mikrofon")
     zerleger.add_argument("--sekunden", type=float, default=5.0, help="Laenge je Stueck")
+    zerleger.add_argument(
+        "--transkript",
+        type=Path,
+        default=None,
+        metavar="JSONL",
+        help="Erkannten Text zusaetzlich hierhin schreiben (kein Ton).",
+    )
     zerleger.add_argument(
         "--mitschneiden",
         type=Path,
@@ -169,7 +207,9 @@ def main() -> int:
         else stuecke_vom_mikrofon(argumente.sekunden)
     )
 
-    for zeile in strom(stuecke, erkennung_whisper(), argumente.mitschneiden):
+    for zeile in strom(
+        stuecke, erkennung_whisper(), argumente.mitschneiden, argumente.transkript
+    ):
         print(json.dumps(zeile, ensure_ascii=False), flush=True)
     return 0
 
