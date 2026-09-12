@@ -107,3 +107,38 @@ describe("Zustand beendet", () => {
     expect(html).not.toContain("<button");
   });
 });
+
+describe("gescheiterter Start (#76)", () => {
+  it("wird ein eigener Zustand, nicht 'bereit'", () => {
+    const zustand = naechsterZustand(null, {
+      art: "bereit",
+      laeuft: false,
+      fehler: "ModuleNotFoundError: No module named 'sounddevice'",
+    });
+
+    expect(zustand?.art).toBe("gescheitert");
+  });
+
+  it("zeigt die Meldung, statt sie zu verschlucken", () => {
+    const html = zustandZuHtml({
+      art: "gescheitert",
+      fehler: "ModuleNotFoundError: No module named 'sounddevice'",
+    });
+
+    expect(html).toContain("sounddevice");
+    expect(html).toContain("nicht starten");
+  });
+
+  it("maskiert Sonderzeichen in der Meldung", () => {
+    const html = zustandZuHtml({ art: "gescheitert", fehler: "Fehler in <modul>" });
+
+    expect(html).not.toContain("<modul>");
+    expect(html).toContain("&lt;modul&gt;");
+  });
+
+  it("ohne Fehler bleibt es beim gemeldeten Zustand", () => {
+    const zustand = naechsterZustand(null, { art: "bereit", laeuft: false, fehler: null });
+
+    expect(zustand?.art).toBe("bereit");
+  });
+});

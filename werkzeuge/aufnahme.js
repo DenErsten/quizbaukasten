@@ -11,6 +11,7 @@ export const ZUSTAND = {
   BEREIT: "bereit",
   LAEUFT: "laeuft",
   BEENDET: "beendet",
+  GESCHEITERT: "gescheitert",
 };
 
 /**
@@ -25,7 +26,39 @@ export function naechsterZustand(vorheriger, antwort) {
   if (antwort === null) {
     return vorheriger === null ? null : { ...vorheriger, veraltet: true };
   }
-  return { ...antwort, veraltet: false };
+  return { ...zustandAusAntwort(antwort), veraltet: false };
+}
+
+/**
+ * Fall 4 aus #76: Ein gescheiterter Start darf nicht wie "bereit" aussehen.
+ *
+ * Vorher fiel die Ansicht stumm zurueck, weil der Server nur laeuft:false
+ * meldete. Jetzt liefert er zusaetzlich fehler — steht dort etwas, ist das
+ * ein eigener Zustand, kein Ausgangszustand.
+ */
+export function zustandAusAntwort(antwort) {
+  if (antwort.fehler) {
+    return { ...antwort, art: ZUSTAND.GESCHEITERT };
+  }
+  return antwort;
+}
+
+function maskiert(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function gescheitertHtml(zustand) {
+  return (
+    `<div class="aufnahme aufnahme-gescheitert">` +
+    `<p class="titel">Die Aufnahme konnte nicht starten.</p>` +
+    `<pre class="fehler">${maskiert(zustand.fehler)}</pre>` +
+    `<p class="rat">Fehlt eine Abhängigkeit? <code>pip3 install sounddevice numpy soundfile mlx-whisper</code></p>` +
+    knopf("starten", "Nochmal versuchen", false) +
+    `</div>`
+  );
 }
 
 function knopf(id, text, deaktiviert) {
@@ -82,6 +115,8 @@ export function zustandZuHtml(zustand) {
       return laeuftHtml(zustand);
     case ZUSTAND.BEENDET:
       return beendetHtml(zustand);
+    case ZUSTAND.GESCHEITERT:
+      return gescheitertHtml(zustand);
     default:
       return "";
   }

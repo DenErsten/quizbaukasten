@@ -11,6 +11,7 @@ http://127.0.0.1, nicht gegen die Python-Klassen allein.
 from __future__ import annotations
 
 import json
+import pathlib
 import tempfile
 import threading
 import unittest
@@ -137,3 +138,109 @@ class ServerTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StummerFehlstart(unittest.TestCase):
+    """
+    #76: Ein gescheiterter Start war von "nicht gestartet" nicht zu
+    unterscheiden. Die Ansicht fiel stumm auf "bereit" zurueck.
+    """
+
+    class SofortTot:
+        """Ein Vorgang, der beim Start stirbt — wie mithoeren.py ohne Whisper."""
+
+        def __init__(self, meldung: str = "ModuleNotFoundError: No module named 'sounddevice'"):
+            self._meldung = meldung
+
+        def poll(self): return 1
+        def terminate(self): pass
+        def wait(self, timeout=None): return 1
+        def fehler_text(self): return self._meldung
+
+    class Laeuft:
+        def poll(self): return None
+        def terminate(self): pass
+        def wait(self, timeout=None): return 0
+        def fehler_text(self): return ""
+
+    def _aufnahme(self, prozess):
+        import tempfile
+        from werkzeuge.server import Aufnahme
+
+        return Aufnahme(
+            aufnahmen_ordner=pathlib.Path(tempfile.mkdtemp()),
+            prozess_starten=lambda _: prozess,
+        )
+
+    def test_sofortiger_tod_meldet_fehler(self) -> None:
+        """Fall 1: laeuft false UND fehler nicht leer."""
+        a = self._aufnahme(self.SofortTot())
+
+        a.start()
+        status = a.status()
+
+        self.assertFalse(status["laeuft"])
+        self.assertIn("sounddevice", status["fehler"])
+
+    def test_laufender_vorgang_hat_keinen_fehler(self) -> None:
+        """Fall 2."""
+        a = self._aufnahme(self.Laeuft())
+
+        a.start()
+
+        self.assertTrue(a.status()["laeuft"])
+        self.assertIsNone(a.status()["fehler"])
+
+    def test_stop_raeumt_den_fehler_weg(self) -> None:
+        """Fall 3: Sonst zeigt die Oberflaeche beim zweiten Versuch den ersten Fehler."""
+        a = self._aufnahme(self.SofortTot())
+        a.start()
+        self.assertIsNotNone(a.status()["fehler"])
+
+        a.stop()
+
+        self.assertIsNone(a.status()["fehler"])
+
+    def test_ohne_meldung_trotzdem_ein_fehler(self) -> None:
+        """Ein stummer Tod darf nicht als 'kein Fehler' durchgehen."""
+        a = self._aufnahme(self.SofortTot(meldung=""))
+
+        a.start()
+
+        self.assertTrue(a.status()["fehler"])
+
+
+class PipelineMeldetJedesGlied(unittest.TestCase):
+    """
+    Nicht im Ticket, beim Bauen gefunden: poll() fragte nur den letzten
+    Prozess. Stirbt mithoeren.py mit Fehler, endet ausloeser.py sauber am
+    geschlossenen Eingang — die Pipeline haette "beendet, alles gut"
+    gemeldet, obwohl nie ein Wort erkannt wurde.
+    """
+
+    class Glied:
+        def __init__(self, code): self._code = code
+        def poll(self): return self._code
+        def terminate(self): pass
+        def wait(self, timeout=None): return self._code or 0
+
+    def test_fehler_im_ersten_glied_zaehlt(self) -> None:
+        from werkzeuge.server import Pipeline
+
+        p = Pipeline([self.Glied(1), self.Glied(0)])
+
+        self.assertEqual(p.poll(), 1)
+
+    def test_alle_sauber_beendet_ist_kein_fehler(self) -> None:
+        from werkzeuge.server import Pipeline
+
+        p = Pipeline([self.Glied(0), self.Glied(0)])
+
+        self.assertEqual(p.poll(), 0)
+
+    def test_laufend_bleibt_laufend(self) -> None:
+        from werkzeuge.server import Pipeline
+
+        p = Pipeline([self.Glied(None), self.Glied(None)])
+
+        self.assertIsNone(p.poll())
