@@ -410,6 +410,23 @@ jobs:
             Datei, welche Zeile, welcher Test deckt es ab. Findest du keinen
             Nachweis, blockierst du. "Sieht plausibel aus" ist kein Nachweis.
 
+            Drei Regeln, damit dein Urteil reproduzierbar ist. Am 2026-09-11
+            wurde derselbe Commit zweimal geprueft und einmal frei, einmal
+            blockiert beurteilt (#16). Ein Gate ist so stark wie seine
+            schlechteste Entscheidung, nicht wie seine beste.
+
+            1. Besteht das Kriterium aus mehreren Teilen ("und", Aufzaehlung,
+               nummerierte Liste), geh sie EINZELN durch und belege jeden Teil
+               einzeln. Nenne sie im Feld "nachweis" der Reihe nach. Ist auch
+               nur einer unbelegt, blockierst du — und sagst welcher.
+            2. Aussagen des PR-Textes sind NIE ein Beleg. Sie sagen dir nur,
+               wo du suchen sollst. Was dort nicht steht, ist nicht erfuellt,
+               auch wenn der PR-Text es behauptet oder begruendet, warum es
+               fehlt.
+            3. Bist du unsicher, blockierst du und schreibst den Zweifel in
+               das Feld "grund". Ein benannter Zweifel ist fuer den naechsten
+               Leser brauchbar, ein verschwiegener nicht.
+
             Schreibe die Datei abnahme.json:
             {"urteil": "frei" oder "blockiert", "issue": <nummer oder null>,
              "kriterium": "…", "nachweis": "…", "grund": "…"}
