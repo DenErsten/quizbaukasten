@@ -111,3 +111,33 @@ describe("laufende Checks (#95)", () => {
     expect(html).toContain("PR-Prüfung");
   });
 });
+
+describe("Knopf und Zustand nebeneinander (#95, Fall 3)", () => {
+  it("der Freigabeknopf bleibt bedienbar, während Checks laufen", () => {
+    // Ein Knopf, der bei jedem laufenden Check verschwindet, macht die
+    // Konsole unbenutzbar — es läuft fast immer etwas.
+    const html = prZuHtml({
+      nummer: 9, titel: "PR", rote_checks: [], laufende_checks: ["abnahme"], freigegeben: false,
+    });
+
+    const knopf = html.match(/<button[^>]*data-tat="freigeben"[^>]*>/)?.[0] ?? "";
+    expect(knopf).not.toContain("disabled");
+  });
+
+  it("und der Zustand steht trotzdem daneben", () => {
+    const html = prZuHtml({ nummer: 9, titel: "PR", rote_checks: [], laufende_checks: ["abnahme"] });
+
+    expect(html).toContain("Läuft noch: abnahme");
+    expect(html).toContain('data-tat="freigeben"');
+  });
+
+  it("nur ein schon freigegebener PR hat den Knopf aus", () => {
+    // Gegenprobe: Sonst bestünde der erste Test auch, wenn nie etwas aus wäre.
+    const html = prZuHtml({
+      nummer: 9, titel: "PR", rote_checks: [], laufende_checks: ["abnahme"], freigegeben: true,
+    });
+
+    const knopf = html.match(/<button[^>]*data-tat="freigeben"[^>]*>/)?.[0] ?? "";
+    expect(knopf).toContain("disabled");
+  });
+});
