@@ -137,8 +137,8 @@ function laeuftHtml(zustand) {
   const offeneHinweise = sichtbareHinweise(zustand.hinweise ?? []).length > 0;
   return (
     `<div class="aufnahme aufnahme-laeuft">` +
-    // Wach, solange nichts unscharf war; fragend, sobald etwas auffiel.
-    wesenHtml(offeneHinweise ? WESEN.HINWEIS : WESEN.HOERT) +
+    // Wach, solange nichts offen ist; fragend, sobald es nachgefragt hat.
+    wesenHtml(offeneHinweise || zustand.nachgefragt ? WESEN.HINWEIS : WESEN.HOERT) +
     knopf("start", "Aufnahme starten", true) +
     knopf("stop", "Aufnahme stoppen", false) +
     `<p class="zeit">${zeitFormatieren(zustand.sekunden)}</p>` +

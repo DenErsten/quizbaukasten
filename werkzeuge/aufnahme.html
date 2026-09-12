@@ -22,6 +22,7 @@
 <script type="module">
   import { ZUSTAND, naechsterZustand, zustandZuHtml } from "./aufnahme.js";
   import { leitfadenHtml } from "./leitfaden.js";
+  import { interviewHtml } from "./interview.js";
 
   const container = document.getElementById("aufnahme");
   const leitfadenFeld = document.getElementById("leitfaden");
@@ -56,21 +57,27 @@
       if (status.laeuft) {
         liefZuletzt = true;
         if (gestartetUm === null) gestartetUm = new Date(status.seit).getTime();
-        const [hinweiseAntwort, transkriptAntwort] = await Promise.all([
+        const [hinweiseAntwort, transkriptAntwort, interviewAntwort] = await Promise.all([
           fetch("/hinweise", { cache: "no-store" }),
           fetch("/transkript", { cache: "no-store" }),
+          fetch("/interview", { cache: "no-store" }),
         ]);
         const hinweise = hinweiseAntwort.ok ? await hinweiseAntwort.json() : [];
         const transkript = transkriptAntwort.ok ? await transkriptAntwort.json() : [];
+        gespraech = interviewAntwort.ok ? await interviewAntwort.json() : null;
+        leitfadenZeichnen();
         zustand = naechsterZustand(zustand, {
           art: ZUSTAND.LAEUFT,
           sekunden: (Date.now() - gestartetUm) / 1000,
           hinweise,
           transkript,
+          nachgefragt: Boolean(gespraech?.nachgefragt),
         });
       } else if (liefZuletzt) {
         liefZuletzt = false;
         gestartetUm = null;
+        gespraech = null;
+        leitfadenZeichnen();
         zustand = naechsterZustand(zustand, {
           art: ZUSTAND.BEENDET,
           anzahlHinweise: status.hinweise ?? 0,
@@ -92,8 +99,14 @@
   let leitfaden = [];
   const erledigt = new Set();
 
+  // Waehrend einer Aufnahme fuehrt das Werkzeug (#114) — dann steht dort das
+  // Interview. Sonst der stille Leitfaden zum Nachlesen und Abhaken.
+  let gespraech = null;
+
   function leitfadenZeichnen() {
-    leitfadenFeld.innerHTML = leitfadenHtml(leitfaden, erledigt);
+    const gefuehrt = gespraech && gespraech.laeuft !== false ? interviewHtml(gespraech) : "";
+    leitfadenFeld.innerHTML = gefuehrt || leitfadenHtml(leitfaden, erledigt);
+    if (gefuehrt) return;
     for (const kasten of leitfadenFeld.querySelectorAll("input[data-punkt]")) {
       kasten.addEventListener("change", () => {
         const nr = Number(kasten.dataset.punkt);

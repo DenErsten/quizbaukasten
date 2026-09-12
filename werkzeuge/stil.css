@@ -579,3 +579,78 @@ p.stand.laeuft { color: var(--akzent, #9fd3c0); }
     grid-column: 2;
   }
 }
+
+/* --------------------------------------------------------------------- */
+/* Das gefuehrte Gespraech (#114)                                         */
+/*                                                                        */
+/* Die aktuelle Frage ist das Groesste auf der Seite. Wer spricht, soll   */
+/* sie im Augenwinkel lesen koennen, ohne hinzusehen.                     */
+
+.interview .titel {
+  font-size: .74rem;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  opacity: .6;
+  margin: 0 0 .6rem;
+}
+
+.interview .frage {
+  font-size: 1.35rem;
+  line-height: 1.35;
+  margin: 0 0 1rem;
+  text-wrap: balance;
+}
+
+/* Die Rueckfrage ist abgesetzt, nicht eingereiht: Sie ist etwas anderes
+   als die Frage — ein Nachhaken, kein neuer Punkt. */
+.interview .rueckfrage {
+  font-size: 1rem;
+  margin: 0 0 1rem;
+  padding: .7rem .9rem;
+  border-left: 3px solid var(--akzent);
+  background: var(--akzent-leise);
+  border-radius: 0 var(--rund) var(--rund) 0;
+}
+
+.interview .rat {
+  font-size: .88rem;
+  color: var(--muted);
+  margin: 0 0 1rem;
+}
+
+.interview .bisher {
+  list-style: none;
+  margin: 1.25rem 0 0;
+  padding: 1rem 0 0;
+  border-top: 1px solid var(--rand);
+  display: grid;
+  gap: .35rem;
+}
+
+.interview .bisher .erledigt {
+  display: flex;
+  justify-content: space-between;
+  gap: .5rem;
+  font-size: .85rem;
+  opacity: .55;
+}
+
+.interview .bisher .erledigt.offen {
+  opacity: .8;
+}
+
+.interview .bisher .marke {
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--warnung);
+}
+
+.interview .fehler {
+  font-size: .88rem;
+  color: var(--fehler);
+}
+
+.interview-fertig .frage {
+  font-size: 1.05rem;
+}

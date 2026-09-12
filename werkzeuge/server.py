@@ -63,6 +63,7 @@ AUFNAHMEN = WURZEL / "aufnahmen"
 if str(WURZEL) not in sys.path:
     sys.path.insert(0, str(WURZEL))
 from scripts.anforderungen import ableiten, als_issue  # noqa: E402
+from scripts.interview import Interview  # noqa: E402
 from scripts.leitfaden import lesen as leitfaden_lesen  # noqa: E402
 
 
@@ -118,33 +119,37 @@ class Pipeline:
 
 
 def _pipeline_starten(datei: Path) -> Pipeline:
-    """Der echte Vorgang: mithoeren.py | ausloeser.py, Ausgabe in `datei`."""
+    """
+    Der echte Vorgang: nur noch mithoeren.py, Transkript in eine Datei.
+
+    ausloeser.py haengt seit #114 nicht mehr darin. Es rief mitten im Satz
+    dazwischen; das Gespraech wird jetzt gefuehrt statt kommentiert, und die
+    Entscheidung faellt in Gespraechspausen (scripts/interview.py). Die Datei
+    bleibt im Repo und laesst sich weiter allein aufrufen — was aus ihr wird,
+    entscheidet ein eigenes Issue.
+
+    `datei` (die Hinweisdatei) wird weiterhin angelegt, aber leer. So bleibt
+    /hinweise ein gueltiger Weg mit einer ehrlichen Antwort: nichts.
+    """
     datei.parent.mkdir(parents=True, exist_ok=True)
     # stderr in eine Datei statt ins Nichts. Vorher ging jede Fehlermeldung
     # der Pipeline verloren — fehlte Whisper, stand nirgends warum (#76).
     fehlerdatei = datei.with_name(datei.stem + ".fehler.log")
+    # --transkript: Der erkannte Text wird abgelegt, nicht nur das, was
+    # ein Hinweis wird. Sonst ist "nichts gesagt" von "nichts gehoert"
+    # nicht zu unterscheiden, und meeting-nacharbeit hat kein Protokoll
+    # zum Nacharbeiten (#81).
+    transkript = datei.with_name(datei.name.replace("-hinweise", "-transkript"))
+    if not datei.exists():
+        datei.touch()
     with fehlerdatei.open("w", encoding="utf-8") as fehler:
-        # --transkript: Der erkannte Text wird abgelegt, nicht nur das, was
-        # ein Hinweis wird. Sonst ist "nichts gesagt" von "nichts gehoert"
-        # nicht zu unterscheiden, und meeting-nacharbeit hat kein Protokoll
-        # zum Nacharbeiten (#81).
-        transkript = datei.with_name(datei.name.replace("-hinweise", "-transkript"))
         mithoeren = subprocess.Popen(
             [sys.executable, str(WURZEL / "scripts" / "mithoeren.py"),
              "--transkript", str(transkript)],
-            stdout=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
             stderr=fehler,
         )
-        with datei.open("w", encoding="utf-8") as ziel:
-            ausloeser = subprocess.Popen(
-                [sys.executable, str(WURZEL / "scripts" / "ausloeser.py")],
-                stdin=mithoeren.stdout,
-                stdout=ziel,
-                stderr=fehler,
-            )
-    assert mithoeren.stdout is not None
-    mithoeren.stdout.close()  # sonst haelt der Server selbst die Pipe offen
-    return Pipeline([mithoeren, ausloeser], fehlerdatei)
+    return Pipeline([mithoeren], fehlerdatei)
 
 
 def modell_vorhanden(modell: str = MODELL) -> bool:
@@ -325,6 +330,69 @@ class Aufnahme:
         }
 
 
+class Gespraech:
+    """
+    Das gefuehrte Erstgespraech, gefuettert aus dem Transkript (#114).
+
+    Das Interview bekommt keinen eigenen Draht zum Mikrofon. Es liest, was
+    mithoeren.py ohnehin schreibt — eine Quelle, kein zweiter Lauschposten.
+
+    `uhr` ist einsetzbar, damit Tests ein ganzes Gespraech in Millisekunden
+    durchspielen koennen, statt drei Sekunden zu warten.
+    """
+
+    def __init__(
+        self,
+        verwaltung: "Aufnahme",
+        punkte_lesen: Callable[[], list[dict]] = leitfaden_lesen,
+        uhr: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self._verwaltung = verwaltung
+        self._punkte_lesen = punkte_lesen
+        self._uhr = uhr
+        self._sperre = threading.Lock()
+        self._interview: Interview | None = None
+        self._ab = 0
+        self._gelesen = 0
+        self._letztes: dict | None = None
+        self._fehler: str | None = None
+
+    def zuruecksetzen(self) -> None:
+        """
+        Neues Gespraech. Alles, was heute schon im Transkript steht, gilt als
+        vergangen — die Datei laeuft ueber den Tag, das Gespraech nicht.
+        """
+        with self._sperre:
+            self._ab = len(self._verwaltung.transkript())
+            self._gelesen = self._ab
+            self._letztes = None
+            self._fehler = None
+            try:
+                self._interview = Interview(self._punkte_lesen())
+            except Exception as fehler:  # noqa: BLE001
+                # Ein kaputter Leitfaden darf die Aufnahme nicht verhindern —
+                # aber er darf auch nicht so aussehen, als liefe ein Interview.
+                self._interview = None
+                self._fehler = str(fehler)
+
+    def stand(self) -> dict:
+        with self._sperre:
+            if self._interview is None:
+                return {"laeuft": False, "fehler": self._fehler}
+
+            zeilen = self._verwaltung.transkript()
+            jetzt = self._uhr()
+            for zeile in zeilen[self._gelesen:]:
+                self._interview.gehoert(jetzt, str(zeile.get("text", "")))
+            self._gelesen = len(zeilen)
+
+            ereignis = self._interview.takt(jetzt)
+            if ereignis is not None:
+                self._letztes = ereignis
+            return {"laeuft": True, "fehler": None, "letztes": self._letztes,
+                    **self._interview.stand()}
+
+
 class Ableitung:
     """
     Der Schritt vom Transkript zu Anforderungs-Entwuerfen (#102).
@@ -454,6 +522,9 @@ class Anfrage(SimpleHTTPRequestHandler):
         if self.path == "/transkript":
             self._json(self.server.verwaltung.transkript())  # type: ignore[attr-defined]
             return
+        if self.path == "/interview":
+            self._json(self.server.gespraech.stand())  # type: ignore[attr-defined]
+            return
         if self.path == "/leitfaden":
             self._leitfaden()
             return
@@ -512,6 +583,7 @@ class Anfrage(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         if self.path == "/aufnahme/start":
             self.server.verwaltung.start()  # type: ignore[attr-defined]
+            self.server.gespraech.zuruecksetzen()  # type: ignore[attr-defined]
             self._json(self.server.verwaltung.status())  # type: ignore[attr-defined]
             return
         if self.path == "/aufnahme/stop":
@@ -625,12 +697,16 @@ class Anfrage(SimpleHTTPRequestHandler):
 
 
 def server_starten(
-    verwaltung: Aufnahme, port: int = 0, ableitung: Ableitung | None = None
+    verwaltung: Aufnahme,
+    port: int = 0,
+    ableitung: Ableitung | None = None,
+    gespraech: Gespraech | None = None,
 ) -> ThreadingHTTPServer:
     """Baut den Server, bindet ihn nur an 127.0.0.1 — kein Port nach aussen."""
     server = ThreadingHTTPServer(("127.0.0.1", port), Anfrage)
     server.verwaltung = verwaltung  # type: ignore[attr-defined]
     server.ableitung = ableitung or Ableitung(verwaltung)  # type: ignore[attr-defined]
+    server.gespraech = gespraech or Gespraech(verwaltung)  # type: ignore[attr-defined]
     return server
 
 

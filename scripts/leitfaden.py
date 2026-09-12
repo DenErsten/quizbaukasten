@@ -22,7 +22,15 @@ WURZEL = Path(__file__).resolve().parent.parent
 LEITFADENDATEI = WURZEL / "docs" / "leitfaden.md"
 
 ABSCHNITT = "die fünf fragen"
-FELDER = {"frage:": "frage", "füllt:": "fuellt", "achtung:": "achtung"}
+FELDER = {
+    "frage:": "frage",
+    "füllt:": "fuellt",
+    "achtung:": "achtung",
+    # Steuern das gefuehrte Gespraech (#114): woran der Rechner erkennt, dass
+    # eine Antwort traegt, und der eine Satz, der kommt, wenn sie es nicht tut.
+    "prüfung:": "pruefung",
+    "rückfrage:": "rueckfrage",
+}
 
 
 def punkte(text: str) -> list[dict]:
@@ -48,7 +56,11 @@ def punkte(text: str) -> list[dict]:
             continue
 
         if blank.startswith("### "):
-            ergebnis.append({"titel": blank[4:].strip(), "frage": "", "fuellt": "", "achtung": ""})
+            ergebnis.append({
+                "titel": blank[4:].strip(),
+                "frage": "", "fuellt": "", "achtung": "",
+                "pruefung": "", "rueckfrage": "",
+            })
             feld = None
             continue
         if not ergebnis:
