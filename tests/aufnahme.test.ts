@@ -142,3 +142,28 @@ describe("gescheiterter Start (#76)", () => {
     expect(zustand?.art).toBe("bereit");
   });
 });
+
+describe("Modell wird geladen (#87)", () => {
+  it("ist ein eigener Zustand, nicht 'bereit'", () => {
+    const z = naechsterZustand(null, { art: "bereit", laeuft: false, laedt_modell: true });
+
+    expect(z?.art).toBe("laedt");
+  });
+
+  it("sagt, dass es einmalig ist", () => {
+    const html = zustandZuHtml({ art: "laedt" });
+
+    expect(html).toContain("einmalig");
+    expect(html).toContain("460 MB");
+  });
+
+  it("der Startknopf ist währenddessen nicht bedienbar", () => {
+    expect(zustandZuHtml({ art: "laedt" })).toContain("disabled");
+  });
+
+  it("ein Fehler wiegt schwerer als ein laufender Download", () => {
+    const z = naechsterZustand(null, { laeuft: false, laedt_modell: true, fehler: "kaputt" });
+
+    expect(z?.art).toBe("gescheitert");
+  });
+});

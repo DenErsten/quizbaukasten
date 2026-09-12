@@ -12,6 +12,7 @@ export const ZUSTAND = {
   LAEUFT: "laeuft",
   BEENDET: "beendet",
   GESCHEITERT: "gescheitert",
+  LAEDT: "laedt",
 };
 
 /**
@@ -40,7 +41,24 @@ export function zustandAusAntwort(antwort) {
   if (antwort.fehler) {
     return { ...antwort, art: ZUSTAND.GESCHEITERT };
   }
+  // Vor dem Fehler pruefen, nach dem Laufen: Ein Download ist kein Fehler,
+  // aber auch kein Ausgangszustand. Ohne diesen Fall sah eine Minute
+  // Warten auf 459 MB aus wie "bereit, aber tut nichts" (#87).
+  if (antwort.laedt_modell) {
+    return { ...antwort, art: ZUSTAND.LAEDT };
+  }
   return antwort;
+}
+
+function laedtHtml() {
+  return (
+    `<div class="aufnahme aufnahme-laedt">` +
+    `<p class="titel">Spracherkennung wird vorbereitet …</p>` +
+    `<p class="rat">Das Modell wird einmalig geladen, rund 460 MB. ` +
+    `Danach startet die Aufnahme ohne Wartezeit.</p>` +
+    knopf("starten", "Aufnahme starten", true) +
+    `</div>`
+  );
 }
 
 function maskiert(text) {
@@ -117,6 +135,8 @@ export function zustandZuHtml(zustand) {
       return beendetHtml(zustand);
     case ZUSTAND.GESCHEITERT:
       return gescheitertHtml(zustand);
+    case ZUSTAND.LAEDT:
+      return laedtHtml();
     default:
       return "";
   }
