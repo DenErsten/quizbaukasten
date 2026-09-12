@@ -87,3 +87,19 @@ describe("Das geführte Gespräch", () => {
     expect(interviewHtml({ ...LAEUFT, frage: "<script>x</script>" })).not.toContain("<script>");
   });
 });
+
+describe("Die Seite verschluckt den Fehlerfall nicht (Befund aus dem review zu #118)", () => {
+  // interviewHtml wird für JEDEN Stand aufgerufen, den /interview liefert.
+  // Die Seite entscheidet nicht vorher, ob sich das lohnt — genau diese
+  // Vorentscheidung hat die Fehlermeldung unerreichbar gemacht.
+  it("liefert für einen kaputten Leitfaden sichtbaren Text, nicht leer", () => {
+    const html = interviewHtml({ laeuft: false, fehler: "Punkt 'X' nennt die Prüfung 'hellsehen'" });
+
+    expect(html).not.toBe("");
+    expect(html).toContain("Kein Gespräch möglich");
+  });
+
+  it("liefert nur dann leer, wenn wirklich nichts anliegt", () => {
+    expect(interviewHtml({ laeuft: false, fehler: null })).toBe("");
+  });
+});

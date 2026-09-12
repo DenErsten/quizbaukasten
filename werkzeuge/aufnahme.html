@@ -104,7 +104,11 @@
   let gespraech = null;
 
   function leitfadenZeichnen() {
-    const gefuehrt = gespraech && gespraech.laeuft !== false ? interviewHtml(gespraech) : "";
+    // interviewHtml entscheidet selbst, ob es etwas zu zeigen gibt: leerer
+    // String heisst "kein Gespraech", ein Fehlertext heisst "kaputter
+    // Leitfaden". Eine Bedingung davor hat genau den Fehlerfall verschluckt,
+    // fuer den das Modul gebaut wurde — dasselbe Muster wie #99.
+    const gefuehrt = gespraech ? interviewHtml(gespraech) : "";
     leitfadenFeld.innerHTML = gefuehrt || leitfadenHtml(leitfaden, erledigt);
     if (gefuehrt) return;
     for (const kasten of leitfadenFeld.querySelectorAll("input[data-punkt]")) {
