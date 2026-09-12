@@ -27,13 +27,18 @@ bis: 2026-09-30
 
 frei: .github/workflows/**
 frei: .claude/**
-frei: .github/geschuetzte-pfade.txt
 frei: scripts/pfad_pruefung.py
 frei: scripts/setup-repo.sh
 frei: scripts/setup-labels.sh
 
 # Bewusst NICHT frei, auch jetzt nicht:
 #
+#   .github/aufbauphase.txt       Diese Datei. Wer die Frist selbst
+#                                 verlaengern kann, hat keine Frist.
+#   .github/geschuetzte-pfade.txt Die Liste. Waere sie frei, koennte
+#                                 der Agent die Zeile oben wieder
+#                                 herausnehmen — zwei Schritte zum
+#                                 selben Ergebnis.
 #   tests/** und die Testmuster   Das Netz. Ein entschaerfter Test faellt
 #                                 niemandem auf — genau die Tuer aus
 #                                 Gegenprobe (c) in setup-repo.sh.

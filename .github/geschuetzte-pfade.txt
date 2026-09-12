@@ -13,6 +13,10 @@ CLAUDE.md
 .claude/**
 .github/workflows/**
 .github/geschuetzte-pfade.txt
+# Das Enddatum der Aufbauphase. Ohne diese Zeile koennte der Agent die
+# Frist selbst verlaengern — dann waere aus der Befristung eine
+# unbefristete Ausnahme geworden, und niemand haette es gemerkt.
+.github/aufbauphase.txt
 .github/ISSUE_TEMPLATE/**
 scripts/menschen.txt
 

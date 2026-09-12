@@ -282,3 +282,43 @@ class Aufbauphase(unittest.TestCase):
 
         self.assertFalse(aktiv)
         self.assertEqual(frei, [])
+
+
+class LockerungKannSichNichtSelbstVerlaengern(unittest.TestCase):
+    """
+    Gegen die echten Dateien, wie WaechterSchuetztSichSelbst.
+
+    Der Pruefer in PR #62 hat gefunden, dass .github/aufbauphase.txt nicht
+    geschuetzt war: Der Agent haette das Enddatum selbst verschieben koennen.
+    Beim Beheben fiel die zweite Schicht auf — .github/geschuetzte-pfade.txt
+    stand in der frei:-Liste, also haette er die Zeile auch wieder entfernen
+    koennen. Zwei Wege zum selben Ergebnis: eine Frist, die keine ist.
+    """
+
+    SELBSTBEZUEGLICH = [
+        ".github/aufbauphase.txt",
+        ".github/geschuetzte-pfade.txt",
+    ]
+
+    def test_stehen_unter_schutz(self) -> None:
+        from scripts.pfad_pruefung import MUSTERDATEI, zeilen
+
+        muster = zeilen(MUSTERDATEI)
+        for datei in self.SELBSTBEZUEGLICH:
+            with self.subTest(datei=datei):
+                self.assertTrue(
+                    any(passt(datei, m) for m in muster),
+                    f"{datei} steuert die Freigabepflicht und muss geschützt sein",
+                )
+
+    def test_sind_nicht_freigestellt(self) -> None:
+        """Schutz nuetzt nichts, wenn die Lockerung ihn gleich wieder aufhebt."""
+        from scripts.pfad_pruefung import AUFBAUDATEI, aufbauphase
+
+        _, _, frei = aufbauphase(AUFBAUDATEI)
+        for datei in self.SELBSTBEZUEGLICH:
+            with self.subTest(datei=datei):
+                self.assertFalse(
+                    any(passt(datei, m) for m in frei),
+                    f"{datei} ist während der Aufbauphase frei — damit ist die Frist wertlos",
+                )
