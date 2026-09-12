@@ -28,7 +28,7 @@ Nutzer von außen ist offen — siehe „Offene Punkte".
 
 - Mehrere Teilnehmer, die gleichzeitig am selben Gespräch arbeiten
 - Ein eigener Anforderungs-Speicher — die Wahrheit steht in GitHub-Issues
-- Aufnahme oder Verarbeitung in der Cloud
+- Aufnahme in der Cloud. Ton verlässt den Rechner nie
 - Automatische Freigabe von Anforderungen. Gate G2 bleibt beim Menschen
 - Mail, Kalender, Kontakte (war Block 02, zurückgestellt am 2026-09-12, #3)
 
@@ -42,6 +42,31 @@ Daraus folgt, was ein Entwurf nicht verletzen darf: Die Aufnahme läuft
 lokal, sie braucht kein Netz, und sie schreibt fortlaufend mit statt am Ende
 auf einmal. Ein Werkzeug, das ein Gespräch verlieren kann, wird nach dem
 ersten Verlust nicht mehr benutzt.
+
+---
+
+## Was den Rechner verlässt
+
+Bis zum 2026-09-12 stand hier pauschal „keine Verarbeitung in der Cloud".
+Der Satz ist mit der Ableitung von Anforderungen nicht mehr haltbar, und ein
+Plan, der etwas verbietet, das täglich passiert, schützt niemanden. Deshalb
+statt eines Verbots eine Liste.
+
+**Verlässt den Rechner nie:**
+
+- die Audioaufnahme, roh oder geschnitten
+- die Spracherkennung selbst — Whisper läuft lokal, ohne Netz
+
+**Verlässt den Rechner, wenn jemand es auslöst:**
+
+- der Text eines Transkripts, wenn auf „Anforderungen ableiten" gedrückt wird
+- die Entwürfe, die dabei zurückkommen
+
+Zwei Bedingungen hängen daran, und sie sind Teil der Regel, nicht Beiwerk:
+Es passiert **nur auf Klick**, nie im Hintergrund, und die Oberfläche sagt
+vorher, dass Text herausgeht. Wer ein Gespräch mitschneidet, in dem etwas
+gesagt wurde, das nirgends hin soll, muss den Schritt auslassen können, ohne
+das Werkzeug zu verlassen.
 
 ---
 
@@ -94,6 +119,10 @@ Produkt. Was ihm zugesagt wurde, gilt trotzdem.
   und selten genug, um nicht zu stören. Ungeprüft, siehe #39.
 - **A4:** Wer das Werkzeug benutzt, arbeitet ohnehin mit GitHub. Sonst ist
   „Anforderung = Issue" eine Zumutung statt einer Vereinfachung.
+- **A5:** Aus Gesprächstext lassen sich Anforderungen ableiten, die ein
+  prüfbares „fertig, wenn …" enthalten. Ungeprüft. Kippt das, ist der
+  Ableitungsschritt nur ein Stichwortzettel — nützlich, aber nicht das,
+  wofür er gebaut wurde.
 
 ## Offene Punkte
 
@@ -107,3 +136,4 @@ Produkt. Was ihm zugesagt wurde, gilt trotzdem.
 | Datum | Was weicht ab | Ursache | Option A | Option B | Entscheidung |
 |-------|---------------|---------|----------|----------|--------------|
 | 2026-09-12 | Produkt gewechselt: Protokoll-Werkzeug statt Quizbaukasten | Beim Aufsetzen des Prozesses zeigte sich, dass das Werkzeug selbst das Ergebnis ist. Der Quizbaukasten war der Testfall, an dem es geprüft wurde. | Quizbaukasten wird Testfall, Werkzeug wird Produkt | Zwei Produkte, zwei Pläne | **A**, von Firat am 2026-09-12 |
+| 2026-09-12 | Text verlässt den Rechner: Anforderungen werden von Claude abgeleitet | Lokal bliebe die Qualität unter dem, was ein „fertig, wenn …" braucht. Ein Ableitungsschritt, der schlechte Anforderungen liefert, ist schlimmer als keiner — man sieht ihm an, dass er lief, nicht dass er danebenlag. | Lokales Modell, Plan bleibt unverändert | Claude über das vorhandene Abo, Plan wird präzisiert | **B**, von Firat am 2026-09-12, #102 |
