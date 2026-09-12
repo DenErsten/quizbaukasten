@@ -214,3 +214,48 @@ class KeinTonverlust(unittest.TestCase):
         zeilen = list(strom([(0.0, b"\x00")], lambda _: "gesagt"))
 
         self.assertEqual([z for z in zeilen if z.get("art") == "rueckstand"], [])
+
+
+class ModellWirdGewaehlt(unittest.TestCase):
+    """
+    #84: Ohne Angabe nimmt mlx_whisper "whisper-tiny", das kleinste Modell.
+    Eine Minute Deutsch ergab damit eine Zeile Kauderwelsch.
+    """
+
+    def test_modell_steht_als_konstante_im_modul(self) -> None:
+        from scripts.mithoeren import MODELL
+
+        self.assertTrue(MODELL, "Ein Modell muss ausdrücklich benannt sein")
+        self.assertNotIn("tiny", MODELL, "tiny reicht für Deutsch nicht")
+
+    def test_beide_zweige_nehmen_ein_modell_entgegen(self) -> None:
+        """
+        Ein Parameter, der nichts tut, ist schlimmer als keiner.
+
+        Der faster-whisper-Zweig nahm die Konstante, egal was uebergeben
+        wurde — gefunden von review an PR #85.
+        """
+        import inspect
+
+        from scripts.mithoeren import MODELL, MODELL_FASTER, erkennung_whisper
+
+        p = inspect.signature(erkennung_whisper).parameters
+        self.assertEqual(p["modell"].default, MODELL)
+        self.assertEqual(p["modell_faster"].default, MODELL_FASTER)
+
+    def test_kein_zweig_greift_an_der_konstante_vorbei(self) -> None:
+        """
+        Im Rumpf darf keine Konstante mehr direkt stehen — sonst haengt der
+        Zweig wieder an ihr statt am Parameter.
+        """
+        import inspect
+
+        from scripts.mithoeren import erkennung_whisper
+
+        rumpf = inspect.getsource(erkennung_whisper)
+        for konstante in ("MODELL_FASTER,", "MODELL,"):
+            self.assertNotIn(
+                konstante + " device", rumpf, "Zweig nutzt die Konstante statt des Parameters"
+            )
+        self.assertIn("modell_faster", rumpf)
+        self.assertIn("path_or_hf_repo=modell", rumpf)
