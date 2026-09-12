@@ -453,6 +453,130 @@ jobs:
           sys.exit(0 if d.get("urteil") == "frei" else 1)
           PY
 
+  # ---------------------------------------------------------------- 4b
+  # Das fuenfte Gate, und das einzige, das die Anwendung STARTET.
+  #
+  # PR #74 und #75 sind durch alle vier gegangen, 98 Tests gruen — und beim
+  # ersten Klick auf "Aufnahme starten" passierte nichts (#76). Keines der
+  # vier prueft, ob das Ding laeuft: pfade liest Dateinamen, pruefen liest
+  # Unit-Tests, review und abnahme lesen den Diff.
+  #
+  # NICHT required, bewusst. Dieser Pruefer startet echte Vorgaenge und wird
+  # der unzuverlaessigste von allen sein. Ein Gate, das aus Flakigkeit
+  # blockiert, bringt Leute dazu, Gates zu umgehen. Erst beobachten, dann
+  # entscheiden — siehe #77.
+  probe:
+    name: probe
+    needs: umfang
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Übersprungen, und warum
+        if: needs.umfang.outputs.workflows == 'true'
+        run: |
+          {
+            echo "### probe übersprungen"
+            echo
+            echo "Dieser PR ändert \`.github/workflows/\`, und \`claude-code-action\`"
+            echo "läuft für solche PRs nicht — dieselbe Sperre wie bei review"
+            echo "und abnahme, siehe #12."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@v6
+        if: needs.umfang.outputs.workflows != 'true'
+
+      - name: Was hat der PR angefasst?
+        if: needs.umfang.outputs.workflows != 'true'
+        id: umfang_dateien
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NR: ${{ github.event.pull_request.number }}
+        run: |
+          # Der Pruefer bekommt die Liste hier, damit er selbst kein gh
+          # braucht. Wer die Anwendung startet, soll nicht auch noch am Repo
+          # schreiben duerfen.
+          {
+            echo "dateien<<ENDE"
+            gh pr diff "$NR" --name-only
+            echo "ENDE"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        if: needs.umfang.outputs.workflows != 'true'
+        with:
+          node-version: "22"
+      - run: npm ci || npm install
+        if: needs.umfang.outputs.workflows != 'true'
+
+      - uses: anthropics/claude-code-action@v1
+        if: needs.umfang.outputs.workflows != 'true'
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Du bist der Rauchtest. Die anderen Pruefer LESEN — du STARTEST.
+
+            Dieser PR hat diese Dateien angefasst:
+
+            ${{ steps.umfang_dateien.outputs.dateien }}
+
+            Finde heraus, was man davon starten kann, und starte es. Ein
+            Server: hochfahren, seine Wege abrufen, wieder beenden. Ein
+            Skript: mit Beispieldaten aufrufen. Eine Seite: ausliefern
+            lassen und pruefen, dass sie nicht leer ist.
+
+            WAS DU PRUEFST
+            Nicht, ob die Fachlogik stimmt — das haben review und abnahme
+            getan. Du pruefst, ob das Ding laeuft und ob es SAGT, wenn es
+            nicht laufen kann.
+
+            In dieser Umgebung fehlen Abhaengigkeiten, die es auf dem
+            Rechner des Nutzers gibt: Whisper, ein Mikrofon, Audiogeraete.
+            Das ist kein Grund zu blockieren. Im Gegenteil — genau hier
+            zeigt sich, was dieses Gate finden soll:
+
+            Ein Start, der ohne Abhaengigkeit scheitert, MUSS das melden.
+            Faellt die Anwendung stattdessen stumm in den Ausgangszustand
+            zurueck oder meldet Normalbetrieb, blockierst du. Ein Werkzeug,
+            das schweigend nicht funktioniert, ist schlimmer als eines, das
+            laut scheitert — der Nutzer merkt es sonst erst im Meeting.
+
+            Blockiere ausserdem, wenn:
+            - sich gar nichts starten laesst, obwohl der PR etwas Startbares
+              enthaelt
+            - ein Vorgang haengt und nicht von selbst zurueckkommt
+            - ein Fehler nur im Log steht, aber die Oberflaeche oder die
+              Antwort Normalzustand meldet
+
+            Raeum auf: Was du startest, beendest du auch.
+
+            Schreibe zum Schluss probe.json, genau so:
+            {"urteil": "frei" oder "blockiert",
+             "was_getan": "was du gestartet und aufgerufen hast",
+             "was_passiert": "was dabei herauskam",
+             "grund": "ein Satz, nur wenn blockiert"}
+          claude_args: |
+            --max-turns 60
+            --model claude-sonnet-5
+            --allowedTools "Read,Glob,Grep,Write,Bash(npm:*),Bash(python3:*),Bash(node:*),Bash(curl:*),Bash(sleep:*),Bash(kill:*),Bash(ls:*),Bash(cat:*)"
+
+      - name: Urteil auswerten
+        if: needs.umfang.outputs.workflows != 'true'
+        run: |
+          if [ ! -f probe.json ]; then
+            echo "::error::Der Rauchtest hat kein Urteil hinterlassen. Im Zweifel blockiert."
+            exit 1
+          fi
+          cat probe.json >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open("probe.json"))
+          print(f"Getan:     {d.get('was_getan','')}")
+          print(f"Passiert:  {d.get('was_passiert','')}")
+          print(f"Urteil:    {d.get('urteil')} — {d.get('grund','')}")
+          sys.exit(0 if d.get("urteil") == "frei" else 1)
+          PY
+
   # ---------------------------------------------------------------- 5
   freischalten:
     name: auto-merge freischalten
