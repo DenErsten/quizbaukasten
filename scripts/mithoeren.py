@@ -39,7 +39,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import queue
 import sys
+import threading
 import wave
 from pathlib import Path
 from typing import Callable, Iterable, Iterator
@@ -84,6 +86,58 @@ def stuecke_vom_mikrofon(sekunden: float = 5.0) -> Iterator[Stueck]:
                 print("Warnung: Audio-Stueck verloren", file=sys.stderr)
             yield verstrichen, bytes(daten)
             verstrichen += sekunden
+
+
+# Ab wie vielen wartenden Stuecken der Rueckstand gemeldet wird. Drei
+# Stuecke sind bei fuenf Sekunden Laenge eine Viertelminute Verzug — ab da
+# hinken die Hinweise dem Gespraech spuerbar hinterher.
+RUECKSTAND_AB = 3
+
+
+class Puffer:
+    """
+    Liest ununterbrochen, waehrend die Erkennung arbeitet.
+
+    Ohne das verdraengt die Erkennung den Ton: `stuecke_vom_mikrofon` liest
+    ein Stueck, `strom` gibt es an Whisper und wartet — und solange niemand
+    liest, laeuft der Puffer des Audiogeraets ueber. Bei der ersten echten
+    Aufnahme am 2026-09-12 stand deshalb zweimal "Audio-Stueck verloren" im
+    Log (#80). Whisper braucht fuer fuenf Sekunden Ton oft laenger als fuenf
+    Sekunden; der Verlust war die Regel, nicht die Ausnahme.
+
+    Hinkt die Erkennung nach, waechst die Warteschlange — aber nichts geht
+    verloren. Ein Gespraech laesst sich nicht wiederholen.
+    """
+
+    _ENDE = object()
+
+    def __init__(self, stuecke: Iterable[Stueck]) -> None:
+        self._quelle = stuecke
+        self._schlange: queue.Queue = queue.Queue()
+        self._leser = threading.Thread(target=self._lesen, daemon=True)
+        self._gestartet = False
+
+    def _lesen(self) -> None:
+        try:
+            for stueck in self._quelle:
+                self._schlange.put(stueck)
+        finally:
+            self._schlange.put(self._ENDE)
+
+    @property
+    def rueckstand(self) -> int:
+        """Wie viele Stuecke warten. Waechst, wenn die Erkennung nachhinkt."""
+        return self._schlange.qsize()
+
+    def __iter__(self) -> Iterator[Stueck]:
+        if not self._gestartet:
+            self._leser.start()
+            self._gestartet = True
+        while True:
+            stueck = self._schlange.get()
+            if stueck is self._ENDE:
+                return
+            yield stueck
 
 
 def erkennung_whisper() -> Erkennung:
@@ -157,7 +211,17 @@ def strom(
             mitschreiber.setsampwidth(BREITE)
             mitschreiber.setframerate(ABTASTRATE)
 
+        gemeldeter_rueckstand = 0
         for zeit, daten in stuecke:
+            # Der Rueckstand gehoert in den Strom, nicht nur auf stderr: Wer
+            # die Hinweise liest, soll erfahren, dass sie hinterherhinken.
+            rueckstand = getattr(stuecke, "rueckstand", 0)
+            if rueckstand >= RUECKSTAND_AB and rueckstand > gemeldeter_rueckstand:
+                gemeldeter_rueckstand = rueckstand
+                yield {"zeit": round(zeit, 2), "art": "rueckstand", "stuecke": rueckstand}
+            elif rueckstand < RUECKSTAND_AB:
+                gemeldeter_rueckstand = 0
+
             if mitschreiber is not None:
                 mitschreiber.writeframes(daten)
             text = (erkennen(daten) or "").strip()
@@ -201,11 +265,12 @@ def main() -> int:
     )
     argumente = zerleger.parse_args()
 
-    stuecke = (
+    roh = (
         stuecke_aus_datei(argumente.datei, argumente.sekunden)
         if argumente.datei
         else stuecke_vom_mikrofon(argumente.sekunden)
     )
+    stuecke = Puffer(roh)
 
     for zeile in strom(
         stuecke, erkennung_whisper(), argumente.mitschneiden, argumente.transkript
