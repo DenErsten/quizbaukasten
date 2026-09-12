@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<title>Aufnahme</title>
+<style>
+  /* Wie anzeige.html: ruhig und kontrastarm, das Gespraech hat Vorrang. */
+  body {
+    font-family: system-ui, sans-serif;
+    background: #111;
+    color: #eee;
+    margin: 0;
+    padding: 1rem;
+  }
+  button {
+    font-size: 1.1rem;
+    padding: 0.5rem 1rem;
+    margin-right: 0.5rem;
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .zeit {
+    font-size: 1.75rem;
+    margin: 1rem 0;
+  }
+  .veraltet {
+    color: #e6a23c;
+  }
+  .hinweise .hinweis {
+    border-bottom: 1px solid #333;
+    padding: 0.75rem 0;
+  }
+  .anzahl {
+    font-size: 1.2rem;
+  }
+  .weiter {
+    color: #8ab4f8;
+  }
+</style>
+</head>
+<body>
+<div id="aufnahme"></div>
+<script type="module">
+  import { ZUSTAND, naechsterZustand, zustandZuHtml } from "./aufnahme.js";
+
+  const container = document.getElementById("aufnahme");
+  let zustand = { art: ZUSTAND.BEREIT };
+  let gestartetUm = null;
+  let liefZuletzt = false;
+
+  function rendern() {
+    container.innerHTML = zustandZuHtml(zustand);
+    const start = document.getElementById("start");
+    const stop = document.getElementById("stop");
+    if (start) start.addEventListener("click", () => auslösen("/aufnahme/start"));
+    if (stop) stop.addEventListener("click", () => auslösen("/aufnahme/stop"));
+  }
+
+  async function auslösen(pfad) {
+    try {
+      await fetch(pfad, { method: "POST" });
+    } catch (fehler) {
+      console.warn("Aufnahme: Anfrage nicht angekommen", fehler);
+    }
+    await aktualisieren();
+  }
+
+  async function aktualisieren() {
+    try {
+      const statusAntwort = await fetch("/status", { cache: "no-store" });
+      if (!statusAntwort.ok) throw new Error("status nicht ok");
+      const status = await statusAntwort.json();
+
+      if (status.laeuft) {
+        liefZuletzt = true;
+        if (gestartetUm === null) gestartetUm = new Date(status.seit).getTime();
+        const hinweiseAntwort = await fetch("/hinweise", { cache: "no-store" });
+        const hinweise = hinweiseAntwort.ok ? await hinweiseAntwort.json() : [];
+        zustand = naechsterZustand(zustand, {
+          art: ZUSTAND.LAEUFT,
+          sekunden: (Date.now() - gestartetUm) / 1000,
+          hinweise,
+        });
+      } else if (liefZuletzt) {
+        liefZuletzt = false;
+        gestartetUm = null;
+        zustand = naechsterZustand(zustand, {
+          art: ZUSTAND.BEENDET,
+          anzahlHinweise: status.hinweise ?? 0,
+          anforderungenUrl: "../anforderungen/",
+        });
+      } else {
+        zustand = naechsterZustand(zustand, { art: ZUSTAND.BEREIT });
+      }
+    } catch (fehler) {
+      console.debug("Aufnahme: Verbindung verloren", fehler);
+      zustand = naechsterZustand(zustand, null);
+    }
+    rendern();
+  }
+
+  aktualisieren();
+  setInterval(aktualisieren, 1000);
+</script>
+</body>
+</html>

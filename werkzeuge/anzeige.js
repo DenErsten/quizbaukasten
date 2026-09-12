@@ -18,7 +18,7 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;");
 }
 
-function zeitFormatieren(sekunden) {
+export function zeitFormatieren(sekunden) {
   const gesamt = Math.max(0, Math.round(sekunden));
   const minuten = Math.floor(gesamt / 60);
   const sek = gesamt % 60;
