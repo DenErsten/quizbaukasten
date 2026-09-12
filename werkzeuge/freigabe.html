@@ -9,32 +9,20 @@
   Arbeitet mit Firats gh-Anmeldung, nicht mit dem Bot-Token. Was hier
   freigegeben wird, trägt seinen Namen — sonst wäre Gate G2 eine Attrappe.
 -->
-<style>
-  body { margin: 0; padding: 1.5rem 2rem; font: 15px/1.55 system-ui, sans-serif;
-         background: #14201d; color: #e8efec; max-width: 60rem; }
-  h1 { font-size: 1.3rem; font-weight: 600; margin: 0 0 1.5rem; }
-  h2 { font-size: 1rem; font-weight: 600; color: #9fd3c0; margin: 2rem 0 .8rem; }
-  .eintrag { border-left: 3px solid #3d5a52; padding: .6rem 0 .7rem .9rem; margin-bottom: 1rem; }
-  .eintrag.unvollstaendig { border-left-color: #c2703f; }
-  .kopf { margin: 0 0 .3rem; }
-  .nummer { color: #7d928b; margin-right: .5rem; font-variant-numeric: tabular-nums; }
-  .marken { margin: 0 0 .4rem; }
-  .marke { display: inline-block; background: #22332e; color: #9fb5ad;
-           padding: .05rem .5rem; border-radius: 3px; margin-right: .4rem; font-size: .8rem; }
-  .marke.fehlt { background: #4a2f22; color: #e0a87f; }
-  .warnung { margin: .2rem 0 .5rem; color: #e0a87f; font-size: .88rem; }
-  .gut { margin: .2rem 0 .5rem; color: #7d928b; font-size: .88rem; }
-  .dateien { margin: .2rem 0 .5rem; color: #566b64; font-size: .8rem; }
-  .knoepfe button { background: #22332e; color: #e8efec; border: 1px solid #3d5a52;
-                    padding: .3rem .9rem; border-radius: 4px; margin-right: .5rem; cursor: pointer; }
-  .knoepfe button:hover:not(:disabled) { background: #2d4a41; }
-  .knoepfe button:disabled { opacity: .4; cursor: default; }
-  .leer, .stand { color: #566b64; }
-  .stand { margin-top: 1.5rem; font-size: .85rem; }
-</style>
+<link rel="stylesheet" href="stil.css" />
+<header class="kopfzeile">
+  <span class="marke">Werkzeuge</span>
+  <nav>
+    <a href="aufnahme.html">Aufnahme</a>
+    <a href="freigabe.html" aria-current="page">Freigaben</a>
+    <span class="bald" title="Noch nicht gebaut">Fortschritt</span>
+  </nav>
+</header>
+<main>
 <h1>Was auf dich wartet</h1>
-<main id="konsole"><p class="leer">Wird geladen …</p></main>
+<div id="konsole"><p class="leer">Wird geladen …</p></div>
 <p class="stand" id="stand"></p>
+</main>
 <script type="module">
   import { konsoleZuHtml } from "/freigabe.js";
 
