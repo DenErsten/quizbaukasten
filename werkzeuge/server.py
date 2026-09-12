@@ -140,12 +140,16 @@ def _pipeline_starten(datei: Path) -> Pipeline:
     # nicht zu unterscheiden, und meeting-nacharbeit hat kein Protokoll
     # zum Nacharbeiten (#81).
     transkript = datei.with_name(datei.name.replace("-hinweise", "-transkript"))
+    # --takt: eine Zeile je Stueck, auch fuer Stille. Ohne das kann das
+    # Interview "es wurde geschwiegen" nicht von "die Erkennung haengt"
+    # unterscheiden — daran ist das erste gefuehrte Gespraech gescheitert (#127).
+    takt = datei.with_name(datei.name.replace("-hinweise", "-takt"))
     if not datei.exists():
         datei.touch()
     with fehlerdatei.open("w", encoding="utf-8") as fehler:
         mithoeren = subprocess.Popen(
             [sys.executable, str(WURZEL / "scripts" / "mithoeren.py"),
-             "--transkript", str(transkript)],
+             "--transkript", str(transkript), "--takt", str(takt)],
             stdout=subprocess.DEVNULL,
             stderr=fehler,
         )
@@ -202,6 +206,19 @@ class Aufnahme:
 
     def _transkriptdatei(self) -> Path:
         return self._datei().with_name(self._datei().name.replace("-hinweise", "-transkript"))
+
+    def _taktdatei(self) -> Path:
+        """Eine Zeile je Stueck, auch fuer Stille (#127)."""
+        return self._datei().with_name(self._datei().name.replace("-hinweise", "-takt"))
+
+    def takt(self) -> list[dict]:
+        """
+        Der Takt der Erkennung: was sie wann gehoert oder nicht gehoert hat.
+
+        Getrennt vom Transkript, weil dort nur steht, was gesagt wurde. Im
+        Transkript ist Stille ein Ausbleiben, hier ist sie eine Aussage.
+        """
+        return self._zeilen(self._taktdatei())
 
     def _laeuft(self) -> bool:
         return self._prozess is not None and self._prozess.poll() is None
@@ -354,8 +371,14 @@ class Gespraech:
         self._interview: Interview | None = None
         self._ab = 0
         self._gelesen = 0
+        self._takt_gelesen = 0
         self._letztes: dict | None = None
         self._fehler: str | None = None
+
+    def _takt(self) -> list[dict]:
+        """Leer, wenn die Verwaltung keinen Takt kennt — etwa in Tests."""
+        holen = getattr(self._verwaltung, "takt", None)
+        return holen() if callable(holen) else []
 
     def zuruecksetzen(self) -> None:
         """
@@ -365,6 +388,7 @@ class Gespraech:
         with self._sperre:
             self._ab = len(self._verwaltung.transkript())
             self._gelesen = self._ab
+            self._takt_gelesen = len(self._takt())
             self._letztes = None
             self._fehler = None
             try:
@@ -385,6 +409,14 @@ class Gespraech:
             for zeile in zeilen[self._gelesen:]:
                 self._interview.gehoert(jetzt, str(zeile.get("text", "")))
             self._gelesen = len(zeilen)
+
+            # Stille ist eine Meldung der Erkennung, kein Ausbleiben von
+            # Zeilen. Sie zaehlt zuerst; die Uhr bleibt der Notnagel (#127).
+            takte = self._takt()
+            for eintrag in takte[self._takt_gelesen:]:
+                if not eintrag.get("gesprochen"):
+                    self._interview.stille(jetzt)
+            self._takt_gelesen = len(takte)
 
             ereignis = self._interview.takt(jetzt)
             if ereignis is not None:

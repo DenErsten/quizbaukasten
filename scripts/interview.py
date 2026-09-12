@@ -29,9 +29,32 @@ Interview mit.
 from __future__ import annotations
 
 import re
+import sys
+from pathlib import Path
 from typing import Callable, Iterable
 
-PAUSE = 3.0
+if str(Path(__file__).resolve().parent.parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from scripts.mithoeren import STUECK_SEKUNDEN  # noqa: E402
+
+# WARUM DIESE ZAHL AUS mithoeren.py KOMMT
+# ---------------------------------------
+# Am 2026-09-12 stand hier 3.0, waehrend die Erkennung in Stuecken von 5.0
+# Sekunden arbeitet. Zwischen zwei Stuecken liegen also immer rund fuenf
+# Sekunden ohne neue Zeile — das Interview ging nach JEDEM Stueck weiter,
+# unabhaengig davon, ob jemand sprach. Im ersten echten Gespraech galten
+# drei von fuenf Fragen als unbeantwortet, und eine Antwort wurde mitten im
+# Satz der naechsten Frage zugeschlagen (#127).
+#
+# Eine Pause, die kuerzer ist als ein Stueck, misst nicht das Gespraech,
+# sondern den Takt der Maschine. Deshalb leitet sie sich ab, statt danebenzu-
+# stehen, und ein Test haelt die Beziehung fest.
+PAUSE = STUECK_SEKUNDEN + 3.0
+
+# Wie viele Stuecke am Stueck ohne ein Wort, bis ein Gedanke als fertig gilt.
+# Das ist das ehrlichere Mass: Es zaehlt, was die Erkennung gemeldet hat,
+# statt zu raten, warum nichts kam.
+STILLE_STUECKE = 2
 
 WEITER = "weiter"
 NACHFRAGEN = "nachfragen"
@@ -137,6 +160,7 @@ class Interview:
         punkte: Iterable[dict],
         pause: float = PAUSE,
         pruefungen: dict[str, Callable[[str], bool]] | None = None,
+        stille_stuecke: int = STILLE_STUECKE,
     ) -> None:
         self._punkte = [dict(p) for p in punkte]
         self._pause = pause
@@ -148,9 +172,11 @@ class Interview:
                     f"Punkt {punkt.get('titel')!r} nennt die Prüfung {name!r}, "
                     f"die es nicht gibt. Bekannt: {', '.join(sorted(self._pruefungen))}"
                 )
+        self._stille_stuecke = stille_stuecke
         self._nr = 0
         self._gesagt: list[str] = []
         self._zuletzt: float | None = None
+        self._stille = 0
         self._nachgefragt = False
         self._ergebnisse: list[dict] = []
 
@@ -163,6 +189,17 @@ class Interview:
             return
         self._gesagt.append(text)
         self._zuletzt = zeit
+        self._stille = 0
+
+    def stille(self, zeit: float = 0.0) -> None:
+        """
+        Ein Stueck, in dem nichts gesagt wurde.
+
+        Das ist die verlaessliche Nachricht, und die Uhr ist nur der Notnagel:
+        Sie sagt "die Erkennung hat gearbeitet und nichts gehoert" — nicht
+        "es kam nichts an", was auch heissen koennte, dass sie haengt.
+        """
+        self._stille += 1
 
     def takt(self, zeit: float) -> dict | None:
         """
@@ -177,6 +214,12 @@ class Interview:
             # Es wurde noch nichts zu dieser Frage gesagt. Stille am Anfang
             # ist Nachdenken, nicht eine leere Antwort.
             return None
+        # Gemeldete Stille zaehlt zuerst: Sie ist eine Aussage der Erkennung.
+        if self._stille >= self._stille_stuecke:
+            return self._entscheiden()
+        # Die Uhr ist der Notnagel fuer den Fall, dass niemand Stille meldet.
+        # Ihre Schwelle ist laenger als ein Stueck — sonst misst sie den Takt
+        # der Maschine statt das Gespraech (#127).
         if zeit - self._zuletzt < self._pause:
             return None
         return self._entscheiden()
@@ -194,6 +237,7 @@ class Interview:
             self._nachgefragt = True
             # Die Uhr laeuft neu: Nach einer Rueckfrage darf man ueberlegen.
             self._zuletzt = None
+            self._stille = 0
             return {
                 "art": NACHFRAGEN,
                 "titel": punkt["titel"],
@@ -211,6 +255,7 @@ class Interview:
         self._nr += 1
         self._gesagt = []
         self._zuletzt = None
+        self._stille = 0
         self._nachgefragt = False
         if self.fertig:
             return {"art": ENDE, "titel": punkt["titel"], "offen": offen, "vorher": art}

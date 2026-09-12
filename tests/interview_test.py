@@ -25,6 +25,7 @@ from scripts.interview import (
     prueft_zahl,
 )
 from scripts.leitfaden import lesen
+from scripts.mithoeren import STUECK_SEKUNDEN
 
 ZWEI = [
     {"titel": "Menge", "frage": "Wie viele?", "pruefung": "zahl",
@@ -88,8 +89,24 @@ class MittenImSatzPassiertNichts(unittest.TestCase):
         self.assertIsNone(i.takt(60.0))
         self.assertEqual(i.stand()["nummer"], 1)
 
-    def test_die_pause_ist_einstellbar_und_hat_einen_vorgabewert(self) -> None:
-        self.assertEqual(PAUSE, 3.0)
+    def test_die_pause_ist_laenger_als_ein_stueck(self) -> None:
+        """
+        Die Bedingung, deren Verletzung das erste echte Gespraech ruiniert
+        hat (#127).
+
+        Hier stand frueher `assertEqual(PAUSE, 3.0)` — eine Zahl, die gegen
+        nichts geprueft wurde. Die Erkennung arbeitet in Stuecken von
+        STUECK_SEKUNDEN; zwischen zwei Stuecken liegt also immer mindestens
+        so viel Zeit ohne neue Zeile. Eine kuerzere Pause misst deshalb nie
+        das Gespraech, sondern den Takt der Maschine — und loest nach jedem
+        Stueck aus, auch mitten im Satz.
+
+        Der Test prueft jetzt die Beziehung statt des Werts. Wer die
+        Stuecklaenge aendert, bekommt hier eine Warnung statt eines stillen
+        Rueckfalls in denselben Fehler.
+        """
+        self.assertGreater(PAUSE, STUECK_SEKUNDEN)
+        self.assertIsNotNone(PAUSE)
 
 
 class HoechstensEineRueckfrage(unittest.TestCase):
@@ -264,15 +281,27 @@ class GespraechAmTranskript(unittest.TestCase):
         self.assertEqual(g.stand()["nummer"], 1)
 
     def test_erst_die_pause_bringt_das_gespraech_weiter(self) -> None:
+        """
+        Die Zeitpunkte leiten sich aus PAUSE ab, nicht aus einer getippten
+        Zahl. Vorher stand hier 5.0 — und 5.0 war laenger als die damalige
+        Pause von 3.0 und kuerzer als ein Stueck. Der Test war damit eine
+        Kopie des Fehlers aus #127 statt seiner Absicherung.
+        """
         g = self._gespraech()
         self.quelle.zeilen.append(
             {"zeit": 0, "text": "Niemand liest die Protokolle und die Anforderungen gehen dabei verloren"}
         )
-        self.jetzt[0] = 1.0
+        # Der erste Abruf nimmt die Zeile auf — ab da laeuft die Uhr.
+        gehoert_um = 1.0
+        self.jetzt[0] = gehoert_um
 
         self.assertIsNone(g.stand()["letztes"])
 
-        self.jetzt[0] = 5.0
+        self.jetzt[0] = gehoert_um + PAUSE - 0.5
+
+        self.assertIsNone(g.stand()["letztes"], "vor Ablauf der Pause passiert nichts")
+
+        self.jetzt[0] = gehoert_um + PAUSE + 0.5
 
         self.assertEqual(g.stand()["letztes"]["art"], WEITER)
 
