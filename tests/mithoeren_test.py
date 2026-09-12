@@ -136,3 +136,81 @@ class Transkript(unittest.TestCase):
         list(strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: "etwas", None, self.ziel))
 
         self.assertEqual([z["zeit"] for z in self._zeilen()], [0.0, 3.0])
+
+
+class KeinTonverlust(unittest.TestCase):
+    """
+    #80: Die Erkennung verdraengte die Aufnahme. Waehrend Whisper arbeitete,
+    las niemand vom Mikrofon, und der Puffer des Geraets lief ueber.
+    """
+
+    def _langsame_quelle(self, anzahl: int, gelesen: list):
+        def quelle():
+            for i in range(anzahl):
+                gelesen.append(i)
+                yield float(i), b"\x00\x00"
+
+        return quelle()
+
+    def test_die_quelle_wird_gelesen_waehrend_erkannt_wird(self) -> None:
+        """
+        Fall 1, der Kern: Nach dem ERSTEN erkannten Stueck ist die Quelle
+        bereits leergelesen. Ohne Puffer waere sie erst nach dem letzten
+        durch — und beim Mikrofon hiesse "noch nicht gelesen" schlicht
+        "verloren".
+        """
+        import time
+
+        from scripts.mithoeren import Puffer
+
+        gelesen: list = []
+        puffer = Puffer(self._langsame_quelle(5, gelesen))
+
+        erster = next(iter(puffer))
+        time.sleep(0.2)  # Zeit, die eine Erkennung brauchen wuerde
+
+        self.assertEqual(erster[0], 0.0)
+        self.assertEqual(len(gelesen), 5, "Die Quelle muss weitergelesen worden sein")
+
+    def test_reihenfolge_bleibt(self) -> None:
+        """Fall 2."""
+        from scripts.mithoeren import Puffer
+
+        gelesen: list = []
+        zeiten = [z for z, _ in Puffer(self._langsame_quelle(4, gelesen))]
+
+        self.assertEqual(zeiten, [0.0, 1.0, 2.0, 3.0])
+
+    def test_nichts_geht_verloren(self) -> None:
+        """Fall 1, Gegenprobe: Alles, was gelesen wurde, kommt auch an."""
+        from scripts.mithoeren import Puffer
+
+        gelesen: list = []
+        empfangen = list(Puffer(self._langsame_quelle(20, gelesen)))
+
+        self.assertEqual(len(empfangen), len(gelesen))
+
+    def test_rueckstand_erscheint_im_strom(self) -> None:
+        """
+        Fall 3: Ein Rueckstand gehoert in den Strom, nicht nur auf stderr.
+        Eine Logdatei oeffnet im Gespraech niemand.
+        """
+        from scripts.mithoeren import RUECKSTAND_AB, strom
+
+        class MitRueckstand(list):
+            rueckstand = RUECKSTAND_AB + 2
+
+        stuecke = MitRueckstand([(0.0, b"\x00"), (5.0, b"\x00")])
+        zeilen = list(strom(stuecke, lambda _: "gesagt"))
+
+        meldungen = [z for z in zeilen if z.get("art") == "rueckstand"]
+        self.assertEqual(len(meldungen), 1, "genau einmal melden, nicht bei jedem Stueck")
+        self.assertGreaterEqual(meldungen[0]["stuecke"], RUECKSTAND_AB)
+
+    def test_ohne_rueckstand_keine_meldung(self) -> None:
+        """Gegenprobe: Im Normalbetrieb schweigt die Meldung."""
+        from scripts.mithoeren import strom
+
+        zeilen = list(strom([(0.0, b"\x00")], lambda _: "gesagt"))
+
+        self.assertEqual([z for z in zeilen if z.get("art") == "rueckstand"], [])
