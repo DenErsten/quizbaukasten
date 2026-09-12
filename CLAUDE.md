@@ -44,7 +44,7 @@ Alles außerhalb von Code erzeugt weiter ein **Review-Objekt**: ein Issue mit
   Lauf, der durch Wegnehmen des Netzes entstanden ist, ist eine Lüge an alle,
   die danach kommen.
 
-   **Eine Ausnahme, und nur diese:** Schreibt ein Test eine Konstante fest,
+- **Eine Ausnahme, und nur diese:** Schreibt ein Test eine Konstante fest,
   die der Code ändern muss, ist er nicht unabhängig reparierbar — jede der
   beiden Hälften wäre für sich rot, und ein roter Pull Request lässt sich
   nicht mergen. Dann dürfen Test und Code in einem PR stehen. Drei
