@@ -1,0 +1,285 @@
+/*
+  Gemeinsames Aussehen der Werkzeuge unter werkzeuge/ (#92).
+
+  Lokale Werkzeuge auf 127.0.0.1, kein oeffentliches Angebot: keine
+  Web-Schriften, keine Icon-Bibliotheken, nichts, was eine Netzverbindung
+  braucht. Nur system-ui und diese eine Datei.
+
+  Die Klassennamen hier sind die, auf die aufnahme.js und freigabe.js schon
+  pruefbar HTML rendern (siehe tests/aufnahme.test.ts, tests/freigabe.test.ts).
+  Wer hier etwas umbenennt, entschaerft diese Tests — deshalb wird nur
+  gestaltet, nicht umbenannt.
+*/
+
+:root {
+  --bg: #14201d;
+  --bg-erhoben: #1c2b27;
+  --fg: #e8efec;
+  --muted: #8aa39a;
+  --rand: #3d5a52;
+  --akzent: #9fd3c0;
+  --gut: #7fbf8f;
+  --warnung: #e0a87f;
+  --fehler: #e0645a;
+  --laedt: #e6c67a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0 0 2rem;
+  font: 15px/1.6 system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+h1 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--akzent);
+  margin: 2rem 0 0.8rem;
+}
+
+main {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* Kopfzeile mit Navigation: dieselbe Leiste auf allen Werkzeugseiten, damit
+   niemand die Adresse tippen muss, um zwischen ihnen zu wechseln. */
+.kopfzeile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--rand);
+}
+
+.kopfzeile .marke {
+  font-weight: 600;
+  color: var(--akzent);
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.kopfzeile nav {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.kopfzeile nav a,
+.kopfzeile nav .bald {
+  color: var(--fg);
+  text-decoration: none;
+  padding: 0.2rem 0;
+  border-bottom: 2px solid transparent;
+}
+
+.kopfzeile nav a:hover {
+  color: var(--akzent);
+}
+
+.kopfzeile nav a[aria-current="page"] {
+  color: var(--akzent);
+  border-bottom-color: var(--akzent);
+}
+
+.kopfzeile nav .bald {
+  color: var(--muted);
+  cursor: default;
+}
+
+/* Knoepfe */
+button {
+  font: inherit;
+  font-size: 1.05rem;
+  background: var(--bg-erhoben);
+  color: var(--fg);
+  border: 1px solid var(--rand);
+  border-radius: 4px;
+  padding: 0.5rem 1.1rem;
+  margin-right: 0.5rem;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #24352f;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Zustaende der Aufnahme (#76, #87): an der Farbe erkennbar, nicht nur am
+   Text — bereit, laeuft, laedt, gescheitert sehen unterschiedlich aus. */
+.aufnahme {
+  padding: 1.25rem 2rem 0;
+  border-left: 4px solid transparent;
+}
+
+.aufnahme-bereit {
+  border-left-color: var(--muted);
+}
+
+.aufnahme-laeuft {
+  border-left-color: var(--gut);
+}
+
+.aufnahme-laedt {
+  border-left-color: var(--laedt);
+}
+
+.aufnahme-gescheitert {
+  border-left-color: var(--fehler);
+}
+
+.zeit {
+  font-size: 1.75rem;
+  margin: 1rem 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.veraltet {
+  color: var(--warnung);
+}
+
+.anzahl {
+  font-size: 1.2rem;
+}
+
+.weiter {
+  color: var(--akzent);
+}
+
+.titel {
+  font-size: 1.05rem;
+  margin: 0 0 0.5rem;
+}
+
+.rat {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.fehler {
+  white-space: pre-wrap;
+  color: var(--fehler);
+  background: var(--bg-erhoben);
+  padding: 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+/* Hinweise waehrend der Aufnahme, aus anzeige.js */
+.hinweise .hinweis {
+  border-bottom: 1px solid var(--rand);
+  padding: 0.75rem 0;
+}
+
+.hinweise .hinweis:last-child {
+  border-bottom: none;
+}
+
+.zitat {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.grund {
+  margin: 0.25rem 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.frage {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* Freigabe-Konsole */
+.eintrag {
+  border-left: 3px solid var(--rand);
+  padding: 0.6rem 0 0.7rem 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.eintrag.unvollstaendig {
+  border-left-color: var(--warnung);
+}
+
+.kopf {
+  margin: 0 0 0.3rem;
+}
+
+.nummer {
+  color: var(--muted);
+  margin-right: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.marken {
+  margin: 0 0 0.4rem;
+}
+
+.marke {
+  display: inline-block;
+  background: var(--bg-erhoben);
+  color: var(--muted);
+  padding: 0.05rem 0.5rem;
+  border-radius: 3px;
+  margin-right: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.marke.fehlt {
+  background: #4a2f22;
+  color: var(--warnung);
+}
+
+.warnung {
+  margin: 0.2rem 0 0.5rem;
+  color: var(--warnung);
+  font-size: 0.88rem;
+}
+
+.gut {
+  margin: 0.2rem 0 0.5rem;
+  color: var(--gut);
+  font-size: 0.88rem;
+}
+
+.dateien {
+  margin: 0.2rem 0 0.5rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.knoepfe button {
+  padding: 0.3rem 0.9rem;
+  margin-right: 0.5rem;
+}
+
+.leer,
+.stand {
+  color: var(--muted);
+}
+
+.stand {
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+}

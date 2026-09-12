@@ -3,45 +3,20 @@
 <head>
 <meta charset="utf-8" />
 <title>Aufnahme</title>
-<style>
-  /* Wie anzeige.html: ruhig und kontrastarm, das Gespraech hat Vorrang. */
-  body {
-    font-family: system-ui, sans-serif;
-    background: #111;
-    color: #eee;
-    margin: 0;
-    padding: 1rem;
-  }
-  button {
-    font-size: 1.1rem;
-    padding: 0.5rem 1rem;
-    margin-right: 0.5rem;
-  }
-  button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
-  .zeit {
-    font-size: 1.75rem;
-    margin: 1rem 0;
-  }
-  .veraltet {
-    color: #e6a23c;
-  }
-  .hinweise .hinweis {
-    border-bottom: 1px solid #333;
-    padding: 0.75rem 0;
-  }
-  .anzahl {
-    font-size: 1.2rem;
-  }
-  .weiter {
-    color: #8ab4f8;
-  }
-</style>
+<link rel="stylesheet" href="stil.css" />
 </head>
 <body>
+<header class="kopfzeile">
+  <span class="marke">Werkzeuge</span>
+  <nav>
+    <a href="aufnahme.html" aria-current="page">Aufnahme</a>
+    <a href="freigabe.html">Freigaben</a>
+    <span class="bald" title="Noch nicht gebaut">Fortschritt</span>
+  </nav>
+</header>
+<main>
 <div id="aufnahme"></div>
+</main>
 <script type="module">
   import { ZUSTAND, naechsterZustand, zustandZuHtml } from "./aufnahme.js";
 
