@@ -6,6 +6,10 @@ Mensch ihn freigegeben hat.
 Das ist der Wächter über den Selbstumbau. Die KI entscheidet über Code; sie
 entscheidet nicht über die Regeln, nach denen sie über Code entscheidet.
 
+Ausnahme mit Ablaufdatum: .github/aufbauphase.txt kann Pfade nennen, die bis
+zu einem festen Datum ohne menschliche Freigabe durchgehen (Issue #61). Nach
+dem Datum gilt ohne weiteres Zutun wieder die volle Liste.
+
 Aufruf in der Action:
 
     gh pr diff "$NR" --name-only > geaendert.txt
@@ -28,12 +32,14 @@ import argparse
 import json
 import os
 import sys
+from datetime import date, datetime
 from fnmatch import fnmatch
 from pathlib import Path
 
 WURZEL = Path(__file__).resolve().parent.parent
 MUSTERDATEI = WURZEL / ".github" / "geschuetzte-pfade.txt"
 MENSCHENDATEI = WURZEL / "scripts" / "menschen.txt"
+AUFBAUDATEI = WURZEL / ".github" / "aufbauphase.txt"
 
 
 def zeilen(pfad: Path) -> list[str]:
@@ -69,6 +75,54 @@ def treffer(dateien: list[str], muster: list[str]) -> list[tuple[str, str]]:
                 gefunden.append((d, m))
                 break
     return gefunden
+
+
+def aufbauphase_lesen(pfad: Path) -> tuple[date | None, list[str]]:
+    """
+    Liest Ablaufdatum und die waehrend der Aufbauphase frei aenderbaren
+    Muster aus einer Datei wie .github/aufbauphase.txt.
+
+    Fehlt die Datei, gilt keine Aufbauphase — das ist die sichere Seite.
+    """
+    if not pfad.exists():
+        return None, []
+    datum: date | None = None
+    muster: list[str] = []
+    for zeile in pfad.read_text(encoding="utf-8").splitlines():
+        zeile = zeile.split("#", 1)[0].strip()
+        if not zeile:
+            continue
+        if zeile.startswith("aufbauphase-bis:"):
+            text = zeile.split(":", 1)[1].strip()
+            datum = datetime.strptime(text, "%Y-%m-%d").date()
+        else:
+            muster.append(zeile)
+    return datum, muster
+
+
+def aufbauphase_aktiv(datum: date | None, heute: date) -> bool:
+    """True, solange das Ablaufdatum noch nicht ueberschritten ist."""
+    return datum is not None and heute <= datum
+
+
+def filtere_aufbauphase(
+    gefunden: list[tuple[str, str]], aufbau_muster: list[str], aktiv: bool
+) -> tuple[list[tuple[str, str]], list[str]]:
+    """
+    Trennt Treffer, die waehrend einer aktiven Aufbauphase frei sind, von
+    denen, die es auch dann nicht sind (z. B. tests/**, docs/plan.md — die
+    stehen nicht in aufbau_muster und bleiben deshalb unangetastet).
+    """
+    if not aktiv:
+        return gefunden, []
+    rest = []
+    durchgelassen = []
+    for datei, muster in gefunden:
+        if any(passt(datei, am) for am in aufbau_muster):
+            durchgelassen.append(datei)
+        else:
+            rest.append((datei, muster))
+    return rest, durchgelassen
 
 
 def nur_neue_zeilen(pr: dict, datei: str) -> bool:
@@ -135,9 +189,19 @@ def main() -> int:
                 rest.append((datei, m))
         gefunden = rest
 
+    # Aufbauphase: befristete Ausnahme fuer die Werkzeuge des Aufbaus, siehe
+    # .github/aufbauphase.txt und Issue #61. Laeuft von selbst ab.
+    aufbau_datum, aufbau_muster = aufbauphase_lesen(AUFBAUDATEI)
+    heute = date.today()
+    aufbau_aktiv = aufbauphase_aktiv(aufbau_datum, heute)
+    gefunden, aufbau_durchgelassen = filtere_aufbauphase(gefunden, aufbau_muster, aufbau_aktiv)
+
     print(f"Geänderte Dateien: {len(dateien)}")
     for d in durchgelassen:
         print(f"  durchgelassen (nur ergänzt): {d}")
+    for d in aufbau_durchgelassen:
+        resttage = (aufbau_datum - heute).days
+        print(f"  durchgelassen (Aufbauphase aktiv, läuft in {resttage} Tagen ab): {d}")
 
     if not gefunden:
         print("Keine geschützten Pfade betroffen. Die KI darf hier allein entscheiden.")

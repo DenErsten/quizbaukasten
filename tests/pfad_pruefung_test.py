@@ -16,6 +16,8 @@ from __future__ import annotations
 import unittest
 
 from scripts.pfad_pruefung import menschliche_freigaben, nur_neue_zeilen, passt, treffer
+from datetime import date
+from scripts.pfad_pruefung import aufbauphase_aktiv, aufbauphase_lesen, filtere_aufbauphase
 
 MUSTER = [
     "CLAUDE.md",
@@ -199,3 +201,85 @@ class WaechterSchuetztSichSelbst(unittest.TestCase):
                     any(passt(datei, m) for m in muster),
                     f"{datei} ist gewöhnlicher Code und sollte ohne Freigabe änderbar sein",
                 )
+
+
+class Aufbauphase(unittest.TestCase):
+    """
+    Befristete Ausnahme mit Ablaufdatum, siehe Issue #61 und
+    .github/aufbauphase.txt.
+
+    Feste Werte hier, nicht die echte Datei — aus demselben Grund wie bei
+    MUSTER oben: eine Verlaengerung des Datums soll diese Tests nicht kippen.
+    """
+
+    ABLAUF = date(2026, 9, 30)
+    AUFBAU_MUSTER = [".github/workflows/**", ".claude/**"]
+
+    def test_vor_dem_datum_ist_aufbaupfad_frei(self) -> None:
+        """Fall: vor dem Datum frei."""
+        gefunden = [(".github/workflows/pr-pruefung.yml", ".github/workflows/**")]
+        aktiv = aufbauphase_aktiv(self.ABLAUF, date(2026, 9, 29))
+
+        rest, durchgelassen = filtere_aufbauphase(gefunden, self.AUFBAU_MUSTER, aktiv)
+
+        self.assertTrue(aktiv)
+        self.assertEqual(rest, [])
+        self.assertEqual(durchgelassen, [".github/workflows/pr-pruefung.yml"])
+
+    def test_nach_dem_datum_ist_aufbaupfad_blockiert(self) -> None:
+        """Fall: nach dem Datum blockiert."""
+        gefunden = [(".github/workflows/pr-pruefung.yml", ".github/workflows/**")]
+        aktiv = aufbauphase_aktiv(self.ABLAUF, date(2026, 10, 1))
+
+        rest, durchgelassen = filtere_aufbauphase(gefunden, self.AUFBAU_MUSTER, aktiv)
+
+        self.assertFalse(aktiv)
+        self.assertEqual(rest, gefunden)
+        self.assertEqual(durchgelassen, [])
+
+    def test_tests_bleiben_in_beiden_faellen_gesperrt(self) -> None:
+        """Fall: tests/** in beiden Faellen blockiert."""
+        gefunden = [("tests/quiz_test.py", "tests/**")]
+
+        for heute in (date(2026, 9, 29), date(2026, 10, 1)):
+            with self.subTest(heute=heute):
+                aktiv = aufbauphase_aktiv(self.ABLAUF, heute)
+                rest, durchgelassen = filtere_aufbauphase(gefunden, self.AUFBAU_MUSTER, aktiv)
+
+                self.assertEqual(rest, gefunden)
+                self.assertEqual(durchgelassen, [])
+
+    def test_ohne_datum_ist_keine_aufbauphase_aktiv(self) -> None:
+        """Fehlt das Ablaufdatum, ist die sichere Seite: keine Ausnahme."""
+        self.assertFalse(aufbauphase_aktiv(None, date(2026, 9, 1)))
+
+    def test_aufbauphase_lesen_parst_datum_und_muster(self) -> None:
+        import tempfile
+        from pathlib import Path
+
+        inhalt = (
+            "# Kommentar\n"
+            "aufbauphase-bis: 2026-09-30\n"
+            "\n"
+            ".github/workflows/**\n"
+            ".claude/**\n"
+        )
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
+            f.write(inhalt)
+            pfad = Path(f.name)
+
+        try:
+            datum, muster = aufbauphase_lesen(pfad)
+        finally:
+            pfad.unlink()
+
+        self.assertEqual(datum, date(2026, 9, 30))
+        self.assertEqual(muster, [".github/workflows/**", ".claude/**"])
+
+    def test_aufbauphase_lesen_ohne_datei_ergibt_keine_ausnahme(self) -> None:
+        from pathlib import Path
+
+        datum, muster = aufbauphase_lesen(Path("/nicht/vorhanden/aufbauphase.txt"))
+
+        self.assertIsNone(datum)
+        self.assertEqual(muster, [])

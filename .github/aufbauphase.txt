@@ -1,0 +1,22 @@
+# Aufbauphase — befristete Ausnahme von den geschützten Pfaden.
+# Hintergrund und Abwägung: Issue #61.
+#
+# Bis einschliesslich dem Datum unten duerfen die danach aufgelisteten Muster
+# ohne menschliche Freigabe geaendert werden. scripts/pfad_pruefung.py prueft
+# das Datum bei jedem Lauf; ist es ueberschritten, gilt fuer diese Pfade
+# wieder die volle Regel aus geschuetzte-pfade.txt, ohne dass jemand etwas
+# tun muss.
+#
+# Diese Datei ist selbst in geschuetzte-pfade.txt eingetragen und bleibt
+# das auch waehrend der Aufbauphase — sie darf nicht in der Liste unten
+# auftauchen. Sonst koennte die KI ihre eigene Frist beliebig verlaengern,
+# und genau davor soll die Befristung schuetzen.
+
+aufbauphase-bis: 2026-09-30
+
+.github/workflows/**
+.claude/**
+.github/geschuetzte-pfade.txt
+scripts/pfad_pruefung.py
+scripts/setup-repo.sh
+scripts/setup-labels.sh
