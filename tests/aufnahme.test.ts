@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ZUSTAND, naechsterZustand, zustandZuHtml } from "../werkzeuge/aufnahme.js";
+import { ZUSTAND, naechsterZustand, zustandZuHtml, transkriptHtml } from "../werkzeuge/aufnahme.js";
 
 // Diese Tests liegen unter tests/ und sind damit ein geschützter Pfad:
 // Die KI darf hier ergänzen, aber nichts entschärfen oder löschen, ohne
@@ -165,5 +165,47 @@ describe("Modell wird geladen (#87)", () => {
     const z = naechsterZustand(null, { laeuft: false, laedt_modell: true, fehler: "kaputt" });
 
     expect(z?.art).toBe("gescheitert");
+  });
+});
+
+describe("das Gehörte wird gezeigt (#99)", () => {
+  it("zeigt erkannten Text, auch ohne Hinweis", () => {
+    const html = transkriptHtml([{ zeit: 12, text: "Das soll ein Timer beinhalten" }], false);
+
+    expect(html).toContain("Timer");
+  });
+
+  it("sagt ausdrücklich, dass nichts Unscharfes dabei war", () => {
+    // Eine leere Fläche ist keine Aussage. Genau daran hat der Nutzer
+    // geglaubt, das Werkzeug sei kaputt, während es korrekt schwieg.
+    const html = transkriptHtml([{ zeit: 1, text: "irgendetwas" }], false);
+
+    expect(html).toContain("nichts Unscharfes");
+  });
+
+  it("schweigt darüber, sobald es Hinweise gibt", () => {
+    const html = transkriptHtml([{ zeit: 1, text: "irgendetwas" }], true);
+
+    expect(html).not.toContain("nichts Unscharfes");
+  });
+
+  it("unterscheidet 'noch nichts erkannt' von 'nichts Unscharfes'", () => {
+    expect(transkriptHtml([], false)).toContain("Noch nichts erkannt");
+    expect(transkriptHtml([], false)).not.toContain("nichts Unscharfes");
+  });
+
+  it("zeigt das Neueste oben und begrenzt die Liste", () => {
+    const viele = Array.from({ length: 12 }, (_, i) => ({ zeit: i, text: `satz ${i}` }));
+
+    const html = transkriptHtml(viele, false);
+
+    expect(html.indexOf("satz 11")).toBeLessThan(html.indexOf("satz 10"));
+    expect(html).not.toContain("satz 0");
+  });
+
+  it("maskiert Sonderzeichen im erkannten Text", () => {
+    const html = transkriptHtml([{ zeit: 1, text: "er sagte <b>jetzt</b>" }], false);
+
+    expect(html).not.toContain("<b>jetzt</b>");
   });
 });

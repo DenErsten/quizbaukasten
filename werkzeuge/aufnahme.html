@@ -51,12 +51,17 @@
       if (status.laeuft) {
         liefZuletzt = true;
         if (gestartetUm === null) gestartetUm = new Date(status.seit).getTime();
-        const hinweiseAntwort = await fetch("/hinweise", { cache: "no-store" });
+        const [hinweiseAntwort, transkriptAntwort] = await Promise.all([
+          fetch("/hinweise", { cache: "no-store" }),
+          fetch("/transkript", { cache: "no-store" }),
+        ]);
         const hinweise = hinweiseAntwort.ok ? await hinweiseAntwort.json() : [];
+        const transkript = transkriptAntwort.ok ? await transkriptAntwort.json() : [];
         zustand = naechsterZustand(zustand, {
           art: ZUSTAND.LAEUFT,
           sekunden: (Date.now() - gestartetUm) / 1000,
           hinweise,
+          transkript,
         });
       } else if (liefZuletzt) {
         liefZuletzt = false;
@@ -81,3 +86,18 @@
 </script>
 </body>
 </html>
+
+<style>
+  /* Das Gehoerte neben der Arbeit — bei schmalem Fenster darueber. */
+  .aufnahme-laeuft { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+  .aufnahme-laeuft .zeit, .aufnahme-laeuft > .knoepfe { grid-column: 1 / -1; }
+  .transkript .titel { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em;
+                       opacity: .6; margin: 0 0 .5rem; }
+  .transkript .satz { margin: 0 0 .35rem; font-size: .92rem; }
+  .transkript .satz .zeit { display: inline-block; min-width: 3rem; opacity: .5;
+                            font-variant-numeric: tabular-nums; font-size: .82rem; }
+  .transkript .leer { opacity: .5; font-size: .88rem; font-style: italic; }
+  @media (max-width: 640px) {
+    .aufnahme-laeuft { grid-template-columns: 1fr; }
+  }
+</style>
