@@ -84,6 +84,12 @@ def offene_prs(aufruf: Aufruf = _gh) -> list[dict]:
     for p in roh:
         checks = p.get("statusCheckRollup") or []
         rot = sorted({c.get("name") for c in checks if c.get("conclusion") == "FAILURE"})
+        # conclusion None heisst "noch nicht entschieden", nicht "kein Fehler".
+        # Genau hier luegen solche Anzeigen sonst (#95).
+        laeuft = sorted({
+            c.get("name") for c in checks
+            if c.get("conclusion") in (None, "") and c.get("name")
+        })
         freigegeben = any(r.get("state") == "APPROVED" for r in p.get("reviews", []))
         bezug = re.search(r"(?im)^\s*refs\s+#(\d+)", p.get("body") or "")
         offen.append({
@@ -91,10 +97,30 @@ def offene_prs(aufruf: Aufruf = _gh) -> list[dict]:
             "titel": p["title"],
             "issue": int(bezug.group(1)) if bezug else None,
             "rote_checks": rot,
+            "laufende_checks": laeuft,
             "freigegeben": freigegeben,
             "dateien": [f["path"] for f in (p.get("files") or [])][:10],
         })
     return offen
+
+
+def laufende_laeufe(aufruf: Aufruf = _gh) -> list[dict]:
+    """
+    Was GitHub gerade rechnet. Fuer die Zeile oben in der Konsole.
+
+    Ohne sie sieht eine leere Liste aus wie "nichts zu tun" — auch dann,
+    wenn gerade fuenf Gates arbeiten.
+    """
+    roh = json.loads(aufruf([
+        "run", "list", "--status", "in_progress", "--limit", "20",
+        "--json", "displayTitle,workflowName,startedAt,headBranch",
+    ]) or "[]")
+    return [{
+        "titel": r.get("displayTitle", ""),
+        "workflow": r.get("workflowName", ""),
+        "zweig": r.get("headBranch", ""),
+        "seit": r.get("startedAt", ""),
+    } for r in roh]
 
 
 def issue_freigeben(nummer: int, aufruf: Aufruf = _gh) -> None:

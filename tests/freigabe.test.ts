@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { issueZuHtml, konsoleZuHtml, maskiert, prZuHtml } from "../werkzeuge/freigabe.js";
+import { issueZuHtml, konsoleZuHtml, laufZeile, maskiert, prZuHtml } from "../werkzeuge/freigabe.js";
 
 describe("Issues in der Konsole", () => {
   it("zeigt ein fehlendes Abnahmekriterium deutlich", () => {
@@ -73,5 +73,41 @@ describe("die ganze Konsole", () => {
 describe("maskiert", () => {
   it("behandelt Anführungszeichen, weil Werte in Attributen landen", () => {
     expect(maskiert('a"b')).toBe("a&quot;b");
+  });
+});
+
+describe("laufende Checks (#95)", () => {
+  it("nennt laufende Checks beim Namen", () => {
+    const html = prZuHtml({ nummer: 9, titel: "PR", rote_checks: [], laufende_checks: ["abnahme"] });
+
+    expect(html).toContain("Läuft noch: abnahme");
+  });
+
+  it("meldet nicht 'alles grün', solange etwas läuft", () => {
+    // conclusion null heißt "noch nicht entschieden", nicht "kein Fehler".
+    const html = prZuHtml({ nummer: 9, titel: "PR", rote_checks: [], laufende_checks: ["review"] });
+
+    expect(html).not.toContain("Alle Checks grün");
+  });
+
+  it("zeigt rote und laufende nebeneinander", () => {
+    const html = prZuHtml({
+      nummer: 9, titel: "PR", rote_checks: ["pfade"], laufende_checks: ["abnahme"],
+    });
+
+    expect(html).toContain("Rot: pfade");
+    expect(html).toContain("Läuft noch: abnahme");
+  });
+
+  it("sagt ausdrücklich, wenn nichts läuft", () => {
+    expect(laufZeile([])).toContain("läuft gerade nichts");
+    expect(laufZeile(undefined)).toContain("läuft gerade nichts");
+  });
+
+  it("zählt und benennt die laufenden Läufe", () => {
+    const html = laufZeile([{ workflow: "PR-Prüfung", zweig: "claude/issue-92" }]);
+
+    expect(html).toContain("1 Lauf in Arbeit");
+    expect(html).toContain("PR-Prüfung");
   });
 });

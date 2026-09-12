@@ -338,6 +338,7 @@ class Anfrage(SimpleHTTPRequestHandler):
             self._json({
                 "issues": freigabe.offene_issues(),
                 "prs": freigabe.offene_prs(),
+                "laeufe": freigabe.laufende_laeufe(),
             })
         except Exception as fehler:  # noqa: BLE001
             self._json({"fehler": str(fehler)}, 502)
