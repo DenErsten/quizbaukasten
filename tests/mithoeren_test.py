@@ -228,15 +228,34 @@ class ModellWirdGewaehlt(unittest.TestCase):
         self.assertTrue(MODELL, "Ein Modell muss ausdrücklich benannt sein")
         self.assertNotIn("tiny", MODELL, "tiny reicht für Deutsch nicht")
 
-    def test_erkennung_nimmt_das_modell_entgegen(self) -> None:
+    def test_beide_zweige_nehmen_ein_modell_entgegen(self) -> None:
         """
-        Wer ein anderes Modell prüfen will, soll es übergeben können, ohne
-        die Konstante zu ändern.
+        Ein Parameter, der nichts tut, ist schlimmer als keiner.
+
+        Der faster-whisper-Zweig nahm die Konstante, egal was uebergeben
+        wurde — gefunden von review an PR #85.
         """
         import inspect
 
-        from scripts.mithoeren import MODELL, erkennung_whisper
+        from scripts.mithoeren import MODELL, MODELL_FASTER, erkennung_whisper
 
         p = inspect.signature(erkennung_whisper).parameters
-        self.assertIn("modell", p)
         self.assertEqual(p["modell"].default, MODELL)
+        self.assertEqual(p["modell_faster"].default, MODELL_FASTER)
+
+    def test_kein_zweig_greift_an_der_konstante_vorbei(self) -> None:
+        """
+        Im Rumpf darf keine Konstante mehr direkt stehen — sonst haengt der
+        Zweig wieder an ihr statt am Parameter.
+        """
+        import inspect
+
+        from scripts.mithoeren import erkennung_whisper
+
+        rumpf = inspect.getsource(erkennung_whisper)
+        for konstante in ("MODELL_FASTER,", "MODELL,"):
+            self.assertNotIn(
+                konstante + " device", rumpf, "Zweig nutzt die Konstante statt des Parameters"
+            )
+        self.assertIn("modell_faster", rumpf)
+        self.assertIn("path_or_hf_repo=modell", rumpf)

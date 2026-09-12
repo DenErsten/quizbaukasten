@@ -152,9 +152,19 @@ class Puffer:
             yield stueck
 
 
-def erkennung_whisper(modell: str = MODELL) -> Erkennung:
+def erkennung_whisper(
+    modell: str = MODELL, modell_faster: str = MODELL_FASTER
+) -> Erkennung:
     """
     Lokale Erkennung. Import spaet — die CI hat kein Whisper.
+
+    Zwei Modellnamen, weil die beiden Bibliotheken verschiedene Formate
+    erwarten: mlx_whisper ein MLX-Repo, faster_whisper eine Groessenangabe
+    oder ein CT2-Repo. Ein Name fuer beide waere in einem der Zweige falsch.
+
+    Beide sind uebergebbar. Vorher nahm der faster-whisper-Zweig die
+    Konstante, egal was uebergeben wurde — ein Parameter, der nichts tut,
+    ist schlimmer als keiner (review an PR #85).
 
     Das Modell wird nicht von Hand zwischengespeichert: mlx_whisper haelt es
     in ModelHolder und laedt nur nach, wenn sich der Pfad aendert. Ich hatte
@@ -179,14 +189,14 @@ def erkennung_whisper(modell: str = MODELL) -> Erkennung:
 
     from faster_whisper import WhisperModel  # noqa: PLC0415
 
-    modell = WhisperModel(MODELL_FASTER, device="cpu", compute_type="int8")
+    geladen = WhisperModel(modell_faster, device="cpu", compute_type="int8")
 
     def erkennen(daten: bytes) -> str:
         import numpy  # noqa: PLC0415
 
         tonspur = numpy.frombuffer(daten, dtype=numpy.int16).astype(numpy.float32)
         tonspur /= 32768.0
-        abschnitte, _ = modell.transcribe(tonspur, language="de")
+        abschnitte, _ = geladen.transcribe(tonspur, language="de")
         return " ".join(a.text for a in abschnitte)
 
     return erkennen
