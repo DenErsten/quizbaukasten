@@ -228,13 +228,25 @@ class Aufnahme:
             self._seit = datetime.now().isoformat(timespec="seconds")
 
     def _modell_holen_und_melden(self) -> None:
+        """
+        Holt das Modell und startet danach, wonach gefragt wurde.
+
+        Ohne den zweiten start() stuende nach dem Download wieder "bereit"
+        da — und wer auf Start gedrueckt hat, muesste ein zweites Mal
+        druecken, ohne zu wissen warum.
+        """
+        geglueckt = False
         try:
             self._modell_holen()
+            geglueckt = True
         except Exception as fehler:  # noqa: BLE001
             # Ein abgebrochener Download darf nicht als "bereit" erscheinen.
             self._fehler = f"Modell konnte nicht geladen werden: {fehler}"
         finally:
             self._laedt = False
+
+        if geglueckt:
+            self.start()
 
     def stop(self) -> None:
         """Fall 3: Ohne laufende Aufnahme ist stop wirkungslos, kein Fehler."""

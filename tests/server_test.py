@@ -48,7 +48,13 @@ class ServerTest(unittest.TestCase):
             self.gestartete.append(prozess)
             return prozess
 
-        self.verwaltung = Aufnahme(self.ordner, prozess_starten=starter)
+        # modell_pruefen wird gesetzt, seit start() das Modell prueft (#87).
+        # Diese Tests pruefen start/stop, nicht den Modell-Download — ohne die
+        # Vorgabe landen sie in "laedt" statt in "laeuft", und zwar ueberall
+        # dort, wo kein Modell im Cache liegt. Also in der CI.
+        self.verwaltung = Aufnahme(
+            self.ordner, prozess_starten=starter, modell_pruefen=lambda: True
+        )
         self.server = server_starten(self.verwaltung, port=0)
         self.basis = f"http://127.0.0.1:{self.server.server_port}"
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -170,6 +176,7 @@ class StummerFehlstart(unittest.TestCase):
         return Aufnahme(
             aufnahmen_ordner=pathlib.Path(tempfile.mkdtemp()),
             prozess_starten=lambda _: prozess,
+            modell_pruefen=lambda: True,  # siehe oben, #87
         )
 
     def test_sofortiger_tod_meldet_fehler(self) -> None:
@@ -331,3 +338,68 @@ class ModellVorabLaden(unittest.TestCase):
         a.start()
 
         self.assertEqual(len(versuche), 1)
+
+
+class NachDemLadenLaeuftEs(unittest.TestCase):
+    """
+    Wer auf Start drueckt, will aufnehmen — nicht ein Modell laden.
+    Ohne diesen Schritt stand nach dem Download wieder "bereit" da.
+    """
+
+    class Laeuft:
+        def poll(self): return None
+        def terminate(self): pass
+        def wait(self, timeout=None): return 0
+        def fehler_text(self): return ""
+
+    def test_nach_erfolgreichem_download_startet_die_aufnahme(self) -> None:
+        import tempfile
+        import time
+
+        from werkzeuge.server import Aufnahme
+
+        vorhanden = [False]
+
+        def holen():
+            vorhanden[0] = True
+
+        a = Aufnahme(
+            aufnahmen_ordner=pathlib.Path(tempfile.mkdtemp()),
+            prozess_starten=lambda _: self.Laeuft(),
+            modell_pruefen=lambda: vorhanden[0],
+            modell_holen=holen,
+        )
+
+        a.start()
+        for _ in range(50):
+            if a.status()["laeuft"]:
+                break
+            time.sleep(0.02)
+
+        self.assertTrue(a.status()["laeuft"], "Nach dem Laden muss die Aufnahme laufen")
+
+    def test_nach_fehlgeschlagenem_download_laeuft_nichts(self) -> None:
+        """Gegenprobe: Kein Start auf ein Modell, das nicht da ist."""
+        import tempfile
+        import time
+
+        from werkzeuge.server import Aufnahme
+
+        def kaputt():
+            raise OSError("abgebrochen")
+
+        a = Aufnahme(
+            aufnahmen_ordner=pathlib.Path(tempfile.mkdtemp()),
+            prozess_starten=lambda _: self.Laeuft(),
+            modell_pruefen=lambda: False,
+            modell_holen=kaputt,
+        )
+
+        a.start()
+        for _ in range(50):
+            if a.status()["fehler"]:
+                break
+            time.sleep(0.02)
+
+        self.assertFalse(a.status()["laeuft"])
+        self.assertIn("abgebrochen", a.status()["fehler"])
