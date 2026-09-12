@@ -108,8 +108,14 @@ def _pipeline_starten(datei: Path) -> Pipeline:
     # der Pipeline verloren — fehlte Whisper, stand nirgends warum (#76).
     fehlerdatei = datei.with_name(datei.stem + ".fehler.log")
     with fehlerdatei.open("w", encoding="utf-8") as fehler:
+        # --transkript: Der erkannte Text wird abgelegt, nicht nur das, was
+        # ein Hinweis wird. Sonst ist "nichts gesagt" von "nichts gehoert"
+        # nicht zu unterscheiden, und meeting-nacharbeit hat kein Protokoll
+        # zum Nacharbeiten (#81).
+        transkript = datei.with_name(datei.name.replace("-hinweise", "-transkript"))
         mithoeren = subprocess.Popen(
-            [sys.executable, str(WURZEL / "scripts" / "mithoeren.py")],
+            [sys.executable, str(WURZEL / "scripts" / "mithoeren.py"),
+             "--transkript", str(transkript)],
             stdout=subprocess.PIPE,
             stderr=fehler,
         )

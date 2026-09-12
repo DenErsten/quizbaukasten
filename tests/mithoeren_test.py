@@ -78,3 +78,61 @@ class Mithoeren(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Transkript(unittest.TestCase):
+    """
+    #81: Was kein Hinweis wird, verschwand. Damit war nicht zu unterscheiden,
+    ob nichts gesagt wurde oder nichts gehoert.
+    """
+
+    def setUp(self) -> None:
+        self.ordner = Path(tempfile.mkdtemp())
+        self.quelle = self.ordner / "probe.wav"
+        wav_schreiben(self.quelle, sekunden=6.0)
+        self.ziel = self.ordner / "unter" / "transkript.jsonl"
+
+    def _zeilen(self) -> list[dict]:
+        import json
+
+        if not self.ziel.exists():
+            return []
+        return [json.loads(z) for z in self.ziel.read_text(encoding="utf-8").splitlines() if z.strip()]
+
+    def test_jedes_erkannte_stueck_steht_im_transkript(self) -> None:
+        """Fall 1: auch was keinen Hinweis ausloest."""
+        saetze = iter(["wir bauen das in TypeScript", "und zwar naechste Woche"])
+
+        list(strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: next(saetze, ""), None, self.ziel))
+
+        self.assertEqual([z["text"] for z in self._zeilen()],
+                         ["wir bauen das in TypeScript", "und zwar naechste Woche"])
+
+    def test_stille_erzeugt_keine_zeile(self) -> None:
+        """Fall 2: wie im Hinweis-Strom."""
+        saetze = iter(["gesprochen", "  "])
+
+        list(strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: next(saetze, ""), None, self.ziel))
+
+        self.assertEqual(len(self._zeilen()), 1)
+
+    def test_ohne_schreibrecht_laeuft_die_aufnahme_weiter(self) -> None:
+        """
+        Fall 3: Ein Gespraech laesst sich nicht wiederholen, eine Datei schon.
+        """
+        gesperrt = self.ordner / "gesperrt"
+        gesperrt.mkdir()
+        gesperrt.chmod(0o500)
+        self.addCleanup(gesperrt.chmod, 0o700)
+
+        zeilen = list(
+            strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: "gesagt", None,
+                  gesperrt / "transkript.jsonl")
+        )
+
+        self.assertEqual(len(zeilen), 2, "Der Strom muss trotzdem liefern")
+
+    def test_zeitmarken_stehen_im_transkript(self) -> None:
+        list(strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: "etwas", None, self.ziel))
+
+        self.assertEqual([z["zeit"] for z in self._zeilen()], [0.0, 3.0])
