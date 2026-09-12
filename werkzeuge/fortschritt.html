@@ -1,0 +1,63 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Fortschritt</title>
+<link rel="stylesheet" href="stil.css" />
+<header class="kopfzeile">
+  <span class="marke">Werkzeuge</span>
+  <nav>
+    <a href="aufnahme.html">Aufnahme</a>
+    <a href="freigabe.html">Freigaben</a>
+    <a href="fortschritt.html" aria-current="page">Fortschritt</a>
+  </nav>
+</header>
+<main>
+  <h1>Was aus den Anforderungen wurde</h1>
+  <div id="fortschritt"><p class="leer">Wird geladen …</p></div>
+  <p class="stand" id="stand"></p>
+</main>
+<style>
+  .meilenstein { margin-bottom: 2rem; }
+  .summe { margin: .2rem 0 .5rem; font-size: .85rem; }
+  .balken { display: flex; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: .8rem; }
+  .balken.leer { background: var(--linie, #27332f); }
+  .teil { display: block; height: 100%; }
+  .teil-vorgeschlagen { background: #c2703f; }
+  .teil-freigegeben { background: #5d7f74; }
+  .teil-in_arbeit { background: #9fd3c0; }
+  .teil-geschlossen { background: #3d5a52; }
+  .teil-pruefung { background: #6b5f8a; }
+  .anforderungen { list-style: none; margin: 0; padding: 0; }
+  .anforderung { display: grid; grid-template-columns: 3.5rem 1fr auto; gap: .6rem;
+                 padding: .25rem 0; align-items: baseline; font-size: .9rem; }
+  .anforderung .nummer { font-variant-numeric: tabular-nums; opacity: .6; }
+  .anforderung .stand { font-size: .78rem; opacity: .7; white-space: nowrap; }
+  .anforderung.stand-geschlossen { opacity: .45; }
+  @media (max-width: 520px) {
+    .anforderung { grid-template-columns: 3.5rem 1fr; }
+    .anforderung .stand { grid-column: 2; }
+  }
+</style>
+<script type="module">
+  import { fortschrittZuHtml } from "/fortschritt.js";
+
+  const ziel = document.getElementById("fortschritt");
+  const stand = document.getElementById("stand");
+
+  async function laden() {
+    try {
+      const antwort = await fetch("/fortschritt", { cache: "no-store" });
+      const daten = await antwort.json();
+      if (daten.fehler) {
+        stand.textContent = `Fehler: ${daten.fehler}`;
+        return;
+      }
+      ziel.innerHTML = fortschrittZuHtml(daten);
+      stand.textContent = `Stand: ${new Date().toLocaleTimeString("de-DE")}`;
+    } catch (fehler) {
+      stand.textContent = `Nicht erreichbar: ${fehler.message}`;
+    }
+  }
+
+  laden();
+  setInterval(laden, 30000);
+</script>

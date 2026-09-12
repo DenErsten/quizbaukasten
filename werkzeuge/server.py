@@ -329,6 +329,9 @@ class Anfrage(SimpleHTTPRequestHandler):
         if self.path == "/freigaben":
             self._freigaben()
             return
+        if self.path == "/fortschritt":
+            self._fortschritt()
+            return
         super().do_GET()
 
     def _freigaben(self) -> None:
@@ -356,6 +359,14 @@ class Anfrage(SimpleHTTPRequestHandler):
             self._handeln()
             return
         self.send_error(404)
+
+    def _fortschritt(self) -> None:
+        freigabe = _freigabe_modul()
+
+        try:
+            self._json(freigabe.fortschritt())
+        except Exception as fehler:  # noqa: BLE001
+            self._json({"fehler": str(fehler)}, 502)
 
     def _handeln(self) -> None:
         """
