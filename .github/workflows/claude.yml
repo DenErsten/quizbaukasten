@@ -8,25 +8,27 @@ name: Claude
 # Siehe #54.
 #
 # Zwei Wege, beide ausdruecklich:
-#   Label "agent:bauen" anheften  — der Knopf, ein Klick im Issue
-#   "/bau" in einen Kommentar     — fuer den, der ohnehin tippt
+# Es gibt genau einen Auslöser: das Label "agent:bauen" anheften.
 #
-# Ueber den Agenten schreiben kann man jetzt in ganzen Saetzen, ohne dass er
-# anspringt.
+# Ein Textausloeser war zuerst dabei ("/bau") und hatte dieselbe Schwaeche wie
+# "@claude": Am 2026-09-11 startete der Kommentar, der das Ende von #54
+# dokumentierte, einen Lauf — weil darin stand, wie der Ausloeser heisst.
+# Siehe #59.
+#
+# Ein Label ist keine Sprache. Man kann darueber schreiben, ohne es
+# anzuheften, und man heftet es nicht versehentlich in einem Nebensatz an.
+# Nur dieses eine Ereignis. Kommentare und geoeffnete Issues starteten bisher
+# jedes Mal einen Lauf, der sofort uebersprungen wurde — sichtbar als Rauschen
+# in der Lauf-Liste und zahlbar in Minuten.
 on:
-  issue_comment:
-    types: [created]
-  pull_request_review_comment:
-    types: [created]
   issues:
-    types: [opened, labeled]
+    types: [labeled]
 
 jobs:
   claude:
     if: >
-      (github.event_name == 'issues' && github.event.action == 'labeled'
-       && github.event.label.name == 'agent:bauen')
-      || contains(github.event.comment.body || github.event.issue.body, '/bau')
+      github.event_name == 'issues' && github.event.action == 'labeled'
+      && github.event.label.name == 'agent:bauen'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -46,7 +48,6 @@ jobs:
           # Muss zur Bedingung oben passen. Stehen die auseinander, startet
           # der Job und die Action tut nichts — ein gruener Lauf ohne Wirkung,
           # also genau das Muster aus #7 und #9.
-          trigger_phrase: "/bau"
           label_trigger: "agent:bauen"
           claude_args: |
             # 25 waren zu wenig: Ein Ticket der Groesse S (eine Funktion,
