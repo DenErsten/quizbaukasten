@@ -79,6 +79,9 @@ class DarfFreigeben(unittest.TestCase):
         self.assertEqual(pr["autor"], "quizberater")
 
 
+if __name__ == "__main__":
+    unittest.main()
+
 
 class DerFehlerStehtAmKnopf(unittest.TestCase):
     """
@@ -131,5 +134,3 @@ class DerFehlerStehtAmKnopf(unittest.TestCase):
         nach_fehler = seite.split("tatFehlerZuHtml(daten.fehler)")[1][:300]
 
         self.assertIn("knopf.disabled = false", nach_fehler)
-if __name__ == "__main__":
-    unittest.main()
