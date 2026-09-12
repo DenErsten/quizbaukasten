@@ -61,6 +61,13 @@ BREITE = 2  # Bytes je Abtastwert (16 bit)
 # verlaengert jedes Stueck um ein Fuenftel.
 UEBERLAPPUNG = 1.0
 
+# Laenge eines Stuecks, an genau einer Stelle. scripts/interview.py liest
+# sie: Seine Pause muss laenger sein als ein Stueck, sonst misst es nicht die
+# Sprechpause, sondern den Takt der Erkennung. Genau das ist am 2026-09-12 im
+# ersten echten Gespraech passiert (#127) — drei von fuenf Fragen galten als
+# unbeantwortet, weil das Interview nach jedem Stueck weiterging.
+STUECK_SEKUNDEN = 5.0
+
 Stueck = tuple[float, bytes]
 Erkennung = Callable[[bytes], str]
 
@@ -86,7 +93,7 @@ class Ueberlappend:
 
 
 def stuecke_aus_datei(
-    pfad: Path, sekunden: float = 5.0, ueberlappung: float = UEBERLAPPUNG
+    pfad: Path, sekunden: float = STUECK_SEKUNDEN, ueberlappung: float = UEBERLAPPUNG
 ) -> Ueberlappend:
     """
     Zerlegt eine WAV-Datei in Stuecke. Fuer Tests und zum Nachstellen.
@@ -113,7 +120,7 @@ def stuecke_aus_datei(
 
 
 def stuecke_vom_mikrofon(
-    sekunden: float = 5.0, ueberlappung: float = UEBERLAPPUNG
+    sekunden: float = STUECK_SEKUNDEN, ueberlappung: float = UEBERLAPPUNG
 ) -> Ueberlappend:
     """Nimmt vom Standard-Eingang auf. Import spaet, damit Tests ohne Geraet laufen."""
     import sounddevice  # noqa: PLC0415
@@ -263,6 +270,7 @@ def strom(
     erkennen: Erkennung,
     mitschnitt: Path | None = None,
     transkript: Path | None = None,
+    takt: Path | None = None,
 ) -> Iterator[dict]:
     """
     Macht aus Audio-Stuecken einen Strom erkannter Saetze.
@@ -278,10 +286,25 @@ def strom(
     Ein Transkript, das sich nicht schreiben laesst, bricht die Aufnahme
     NICHT ab. Ein Gespraech laesst sich nicht wiederholen — eine Datei
     schon.
+
+    `takt` ist ein eigener Kanal: EINE Zeile je Stueck, auch fuer Stille.
+    Das Transkript bleibt unveraendert — dort steht weiterhin nur, was gesagt
+    wurde. Der Unterschied ist der Punkt: Im Transkript ist Stille ein
+    Ausbleiben, im Takt ist sie eine Aussage. Wer nur das Transkript liest,
+    kann "es wurde geschwiegen" nicht von "die Erkennung haengt"
+    unterscheiden — und genau daran ist das erste gefuehrte Gespraech
+    gescheitert (#127).
     """
     mitschreiber = None
     mitschrift = None
+    taktschrift = None
     try:
+        if takt is not None:
+            try:
+                takt.parent.mkdir(parents=True, exist_ok=True)
+                taktschrift = takt.open("a", encoding="utf-8")
+            except OSError as fehler:
+                print(f"Takt nicht schreibbar, laeuft ohne: {fehler}", file=sys.stderr)
         if transkript is not None:
             try:
                 transkript.parent.mkdir(parents=True, exist_ok=True)
@@ -316,6 +339,19 @@ def strom(
                 mitschreiber.writeframes(daten if erstes else daten[doppelt:])
             erstes = False
             text = (erkennen(daten) or "").strip()
+
+            # Eine Zeile je Stueck, bevor irgendetwas uebersprungen wird.
+            # Wer hier "continue" vorzieht, nimmt der Stille wieder ihre
+            # Stimme.
+            if taktschrift is not None:
+                try:
+                    taktschrift.write(json.dumps(
+                        {"zeit": round(zeit, 2), "gesprochen": bool(text)}) + "\n")
+                    taktschrift.flush()
+                except OSError as fehler:
+                    print(f"Takt nicht schreibbar, laeuft ohne: {fehler}", file=sys.stderr)
+                    taktschrift = None
+
             if not text:
                 continue
 
@@ -341,18 +377,27 @@ def strom(
             mitschreiber.close()
         if mitschrift is not None:
             mitschrift.close()
+        if taktschrift is not None:
+            taktschrift.close()
 
 
 def main() -> int:
     zerleger = argparse.ArgumentParser(description="Laufende Mitschrift, lokal.")
     zerleger.add_argument("--datei", type=Path, help="WAV statt Mikrofon")
-    zerleger.add_argument("--sekunden", type=float, default=5.0, help="Laenge je Stueck")
+    zerleger.add_argument("--sekunden", type=float, default=STUECK_SEKUNDEN, help="Laenge je Stueck")
     zerleger.add_argument(
         "--transkript",
         type=Path,
         default=None,
         metavar="JSONL",
         help="Erkannten Text zusaetzlich hierhin schreiben (kein Ton).",
+    )
+    zerleger.add_argument(
+        "--takt",
+        type=Path,
+        default=None,
+        metavar="JSONL",
+        help="Eine Zeile je Stueck, auch fuer Stille. Macht Schweigen sichtbar.",
     )
     zerleger.add_argument(
         "--mitschneiden",
@@ -371,7 +416,8 @@ def main() -> int:
     stuecke = Puffer(roh)
 
     for zeile in strom(
-        stuecke, erkennung_whisper(), argumente.mitschneiden, argumente.transkript
+        stuecke, erkennung_whisper(), argumente.mitschneiden, argumente.transkript,
+        argumente.takt,
     ):
         print(json.dumps(zeile, ensure_ascii=False), flush=True)
     return 0

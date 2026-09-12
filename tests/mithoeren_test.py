@@ -330,3 +330,60 @@ class UeberlappendeStuecke(unittest.TestCase):
         )
 
         self.assertEqual(len(zeilen), 3)
+
+
+class TaktKanal(unittest.TestCase):
+    """
+    Eine Zeile je Stueck, auch fuer Stille (#127).
+
+    Getrennt vom Transkript: Dort steht weiterhin nur, was gesagt wurde —
+    `test_stille_erzeugt_keine_zeile` gilt unveraendert. Der Unterschied ist
+    der Punkt: Im Transkript ist Stille ein Ausbleiben, im Takt eine Aussage.
+    """
+
+    def setUp(self) -> None:
+        self.ordner = Path(tempfile.mkdtemp())
+        self.quelle = self.ordner / "ton.wav"
+        wav_schreiben(self.quelle, sekunden=9.0)
+        self.takt = self.ordner / "takt.jsonl"
+        self.transkript = self.ordner / "transkript.jsonl"
+
+    def _takte(self) -> list[dict]:
+        import json
+
+        if not self.takt.exists():
+            return []
+        return [json.loads(z) for z in self.takt.read_text(encoding="utf-8").splitlines() if z.strip()]
+
+    def test_jedes_stueck_steht_im_takt_auch_das_stille(self) -> None:
+        saetze = iter(["gesprochen", "   ", "wieder gesprochen"])
+
+        list(strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: next(saetze, ""),
+                   None, self.transkript, self.takt))
+
+        self.assertEqual([t["gesprochen"] for t in self._takte()], [True, False, True])
+
+    def test_das_transkript_bleibt_frei_von_stille(self) -> None:
+        import json
+
+        saetze = iter(["gesprochen", "   ", "wieder gesprochen"])
+
+        list(strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: next(saetze, ""),
+                   None, self.transkript, self.takt))
+
+        zeilen = [json.loads(z) for z in self.transkript.read_text(encoding="utf-8").splitlines() if z.strip()]
+        self.assertEqual([z["text"] for z in zeilen], ["gesprochen", "wieder gesprochen"])
+
+    def test_der_takt_traegt_die_zeitmarke_des_stuecks(self) -> None:
+        saetze = iter(["eins", "zwei", "drei"])
+
+        list(strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: next(saetze, ""),
+                   None, self.transkript, self.takt))
+
+        self.assertEqual([t["zeit"] for t in self._takte()], [0.0, 3.0, 6.0])
+
+    def test_ohne_takt_pfad_entsteht_keine_datei(self) -> None:
+        """Ein Kanal, den niemand bestellt hat, wird nicht geoeffnet."""
+        list(strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: "x", None, self.transkript))
+
+        self.assertFalse(self.takt.exists())
