@@ -98,6 +98,35 @@ function veraltetHinweis(zustand) {
     : "";
 }
 
+/**
+ * Was das Werkzeug gehoert hat.
+ *
+ * Ohne diese Spalte sehen "hoert zu, nichts war unscharf" und "hoert
+ * nichts" gleich aus — beide eine leere Flaeche. Genau daran hat Firat am
+ * 2026-09-12 geglaubt, das Werkzeug sei kaputt, waehrend es seinen Satz
+ * wortwoertlich erkannt hatte (#99).
+ */
+export function transkriptHtml(zeilen, hinweiseVorhanden) {
+  if (!zeilen?.length) {
+    return (
+      `<div class="transkript">` +
+      `<p class="titel">Gehört</p>` +
+      `<p class="leer">Noch nichts erkannt.</p>` +
+      `</div>`
+    );
+  }
+  const saetze = zeilen
+    .slice(-8)
+    .reverse()
+    .map((z) => `<p class="satz"><span class="zeit">${zeitFormatieren(z.zeit ?? 0)}</span>${maskiert(z.text ?? "")}</p>`)
+    .join("");
+  // Fall 4: "nichts Unscharfes gehört" ist eine Aussage, eine leere Fläche ist keine.
+  const nichts = hinweiseVorhanden
+    ? ""
+    : `<p class="leer">Bisher nichts Unscharfes darin.</p>`;
+  return `<div class="transkript"><p class="titel">Gehört</p>${saetze}${nichts}</div>`;
+}
+
 function laeuftHtml(zustand) {
   return (
     `<div class="aufnahme aufnahme-laeuft">` +
@@ -105,6 +134,7 @@ function laeuftHtml(zustand) {
     knopf("stop", "Aufnahme stoppen", false) +
     `<p class="zeit">${zeitFormatieren(zustand.sekunden)}</p>` +
     veraltetHinweis(zustand) +
+    transkriptHtml(zustand.transkript, (zustand.hinweise ?? []).length > 0) +
     `<div class="hinweise">${sichtbareHinweise(zustand.hinweise ?? []).map(hinweisZuHtml).join("")}</div>` +
     `</div>`
   );

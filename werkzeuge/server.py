@@ -186,6 +186,9 @@ class Aufnahme:
         datum = datetime.now().strftime("%Y-%m-%d")
         return self.aufnahmen_ordner / f"{datum}-hinweise.jsonl"
 
+    def _transkriptdatei(self) -> Path:
+        return self._datei().with_name(self._datei().name.replace("-hinweise", "-transkript"))
+
     def _laeuft(self) -> bool:
         return self._prozess is not None and self._prozess.poll() is None
 
@@ -264,9 +267,13 @@ class Aufnahme:
             self._prozess = None
             self._seit = None
 
-    def hinweise(self) -> list[dict]:
-        """Fall 4 und 5: fehlende Datei -> leer, kaputte Zeile -> ueberspringen."""
-        datei = self._datei()
+    def _zeilen(self, datei: Path) -> list[dict]:
+        """
+        Fehlende Datei -> leer, kaputte Zeile -> ueberspringen.
+
+        Die Datei wird geschrieben, waehrend sie gelesen wird: Eine halb
+        geschriebene letzte Zeile ist der Normalfall, nicht die Ausnahme.
+        """
         if not datei.exists():
             return []
         ergebnisse = []
@@ -279,6 +286,18 @@ class Aufnahme:
             except json.JSONDecodeError:
                 continue
         return ergebnisse
+
+    def hinweise(self) -> list[dict]:
+        return self._zeilen(self._datei())
+
+    def transkript(self) -> list[dict]:
+        """
+        Was das Werkzeug gehoert hat.
+
+        Ohne das sehen "hoert zu, nichts war unscharf" und "hoert nichts"
+        gleich aus — beide eine leere Flaeche (#99).
+        """
+        return self._zeilen(self._transkriptdatei())
 
     def status(self) -> dict:
         """Fall 1: laeuft spiegelt start/stop."""
@@ -325,6 +344,9 @@ class Anfrage(SimpleHTTPRequestHandler):
             return
         if self.path == "/hinweise":
             self._json(self.server.verwaltung.hinweise())  # type: ignore[attr-defined]
+            return
+        if self.path == "/transkript":
+            self._json(self.server.verwaltung.transkript())  # type: ignore[attr-defined]
             return
         if self.path == "/freigaben":
             self._freigaben()

@@ -403,3 +403,53 @@ class NachDemLadenLaeuftEs(unittest.TestCase):
 
         self.assertFalse(a.status()["laeuft"])
         self.assertIn("abgebrochen", a.status()["fehler"])
+
+
+class TranskriptWeg(unittest.TestCase):
+    """
+    #99: Ohne diesen Weg sehen "hoert zu, nichts war unscharf" und "hoert
+    nichts" gleich aus — beide eine leere Flaeche.
+    """
+
+    def _aufnahme(self):
+        import tempfile
+        from werkzeuge.server import Aufnahme
+
+        return Aufnahme(
+            aufnahmen_ordner=pathlib.Path(tempfile.mkdtemp()),
+            modell_pruefen=lambda: True,
+        )
+
+    def test_fehlende_datei_gibt_eine_leere_liste(self) -> None:
+        """Fall 1, zweite Hälfte."""
+        self.assertEqual(self._aufnahme().transkript(), [])
+
+    def test_zeilen_werden_geliefert(self) -> None:
+        """Fall 1."""
+        a = self._aufnahme()
+        datei = a._transkriptdatei()
+        datei.parent.mkdir(parents=True, exist_ok=True)
+        datei.write_text(
+            '{"zeit": 0.0, "text": "erster"}\n{"zeit": 5.0, "text": "zweiter"}\n',
+            encoding="utf-8",
+        )
+
+        self.assertEqual([z["text"] for z in a.transkript()], ["erster", "zweiter"])
+
+    def test_kaputte_zeile_wird_uebersprungen(self) -> None:
+        """
+        Fall 2: Die Datei wird geschrieben, waehrend sie gelesen wird — eine
+        halb geschriebene letzte Zeile ist der Normalfall.
+        """
+        a = self._aufnahme()
+        datei = a._transkriptdatei()
+        datei.parent.mkdir(parents=True, exist_ok=True)
+        datei.write_text('{"zeit": 0.0, "text": "heil"}\n{"zeit": 5.0, "te\n', encoding="utf-8")
+
+        self.assertEqual([z["text"] for z in a.transkript()], ["heil"])
+
+    def test_transkript_und_hinweise_sind_verschiedene_dateien(self) -> None:
+        a = self._aufnahme()
+
+        self.assertNotEqual(a._transkriptdatei(), a._datei())
+        self.assertIn("transkript", a._transkriptdatei().name)
