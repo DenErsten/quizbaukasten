@@ -33,9 +33,12 @@
     font-size: 1.05rem;
   }
 </style>
+<!-- Kein Modul: Ein Melder, der selbst ein Modul waere, teilt das
+     Schicksal des Moduls, das er melden soll (#122). -->
+<script src="anlauf.js"></script>
 </head>
 <body>
-<div id="hinweise"></div>
+<div id="hinweise" data-anlauf="Wird geladen …">Wird geladen …</div>
 <script type="module">
   import { anzeigen } from "./anzeige.js";
 

@@ -674,3 +674,22 @@ p.stand.laeuft { color: var(--akzent, #9fd3c0); }
   font-size: .82rem;
   color: var(--muted);
 }
+
+/* Eine Seite, deren Modul nicht anlaeuft, sagt es (#122). */
+.anlauf-fehler {
+  margin: 0 0 .6rem;
+  color: var(--fehler);
+  font-size: 1rem;
+}
+
+.anlauf-einzelheit {
+  margin: 0;
+  padding: .6rem .8rem;
+  border-left: 3px solid var(--fehler);
+  border-radius: 0 var(--rund) var(--rund) 0;
+  background: var(--bg-tiefer);
+  color: var(--muted);
+  font-size: .82rem;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}

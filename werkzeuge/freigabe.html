@@ -10,6 +10,9 @@
   freigegeben wird, trägt seinen Namen — sonst wäre Gate G2 eine Attrappe.
 -->
 <link rel="stylesheet" href="stil.css" />
+<!-- Kein Modul: Ein Melder, der selbst ein Modul waere, teilt das
+     Schicksal des Moduls, das er melden soll (#122). -->
+<script src="anlauf.js"></script>
 <header class="kopfzeile">
   <span class="marke">Werkzeuge</span>
   <nav>
@@ -21,7 +24,7 @@
 </header>
 <main>
 <h1>Was auf dich wartet</h1>
-<div id="konsole"><p class="leer">Wird geladen …</p></div>
+<div id="konsole" data-anlauf="Wird geladen …">Wird geladen …</div>
 <p class="stand" id="stand"></p>
 </main>
 <script type="module">
