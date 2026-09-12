@@ -229,6 +229,22 @@ class Aufnahme:
         }
 
 
+def _freigabe_modul():
+    """
+    Beim Aufruf `python3 werkzeuge/server.py` liegt werkzeuge/ selbst im
+    Suchpfad, nicht das Repo — dann gibt es kein Paket "werkzeuge". Die Tests
+    rufen aus der Wurzel und sehen es. Beide Wege muessen gehen.
+    """
+    try:
+        from werkzeuge import freigabe  # noqa: PLC0415
+
+        return freigabe
+    except ImportError:
+        import freigabe  # noqa: PLC0415
+
+        return freigabe
+
+
 class Anfrage(SimpleHTTPRequestHandler):
     """Drei bediente Wege, alles andere aus werkzeuge/ ausgeliefert."""
 
@@ -242,7 +258,21 @@ class Anfrage(SimpleHTTPRequestHandler):
         if self.path == "/hinweise":
             self._json(self.server.verwaltung.hinweise())  # type: ignore[attr-defined]
             return
+        if self.path == "/freigaben":
+            self._freigaben()
+            return
         super().do_GET()
+
+    def _freigaben(self) -> None:
+        freigabe = _freigabe_modul()
+
+        try:
+            self._json({
+                "issues": freigabe.offene_issues(),
+                "prs": freigabe.offene_prs(),
+            })
+        except Exception as fehler:  # noqa: BLE001
+            self._json({"fehler": str(fehler)}, 502)
 
     def do_POST(self) -> None:  # noqa: N802
         if self.path == "/aufnahme/start":
@@ -253,11 +283,48 @@ class Anfrage(SimpleHTTPRequestHandler):
             self.server.verwaltung.stop()  # type: ignore[attr-defined]
             self._json(self.server.verwaltung.status())  # type: ignore[attr-defined]
             return
+        if self.path.startswith("/freigabe/") or self.path.startswith("/kommentar/"):
+            self._handeln()
+            return
         self.send_error(404)
 
-    def _json(self, daten: object) -> None:
+    def _handeln(self) -> None:
+        """
+        Freigeben und kommentieren. Fehler werden durchgereicht: Ein Knopf,
+        der nichts tut und Erfolg meldet, ist schlimmer als keiner.
+        """
+        freigabe = _freigabe_modul()
+
+        teile = self.path.strip("/").split("/")
+        laenge = int(self.headers.get("Content-Length") or 0)
+        daten = json.loads(self.rfile.read(laenge) or b"{}") if laenge else {}
+
+        try:
+            if teile[0] == "freigabe" and len(teile) == 3:
+                art, nummer = teile[1], int(teile[2])
+                if art == "issue":
+                    freigabe.issue_freigeben(nummer)
+                elif art == "pr":
+                    freigabe.pr_freigeben(nummer)
+                else:
+                    self.send_error(404)
+                    return
+            elif teile[0] == "kommentar" and len(teile) == 3:
+                text = str(daten.get("text", "")).strip()
+                if not text:
+                    self._json({"fehler": "Ein leerer Kommentar hilft niemandem."}, 400)
+                    return
+                freigabe.kommentieren(teile[1], int(teile[2]), text)
+            else:
+                self.send_error(404)
+                return
+            self._json({"ok": True})
+        except Exception as fehler:  # noqa: BLE001
+            self._json({"fehler": str(fehler)}, 502)
+
+    def _json(self, daten: object, code: int = 200) -> None:
         koerper = json.dumps(daten).encode("utf-8")
-        self.send_response(200)
+        self.send_response(code)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(koerper)))
         self.end_headers()
