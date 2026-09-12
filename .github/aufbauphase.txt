@@ -1,0 +1,47 @@
+# Aufbauphase
+#
+# Solange der Prozess selbst gebaut wird, aendert sich taeglich etwas an den
+# Dateien, die ihn steuern. Jede dieser Aenderungen durch eine menschliche
+# Freigabe zu schicken, hat am 2026-09-11 elf Pull Requests gekostet, von
+# denen fast keiner das Produkt betraf.
+#
+# Diese Datei lockert das — befristet.
+#
+# WARUM EIN DATUM UND KEIN SCHALTER
+# ---------------------------------
+# "Wir stellen spaeter wieder scharf" ist der am haeufigsten gebrochene Satz
+# in der Softwareentwicklung. Nicht aus Nachlaessigkeit, sondern weil
+# "spaeter" keinen Termin hat und niemandem gehoert. Steht hier ein Datum,
+# greift am Tag danach wieder die normale Regel — ohne dass jemand daran
+# denken muss. Verlaengern ist ein bewusster Akt, Vergessen fuehrt zur
+# sicheren Seite.
+
+bis: 2026-09-30
+
+# Diese Muster brauchen bis dahin keine menschliche Freigabe. Sie muessen
+# ausserdem in .github/geschuetzte-pfade.txt stehen — hier steht nur, was
+# voruebergehend NICHT gilt, nie was zusaetzlich geschuetzt waere.
+#
+# Die Trennlinie: Was den Aufbau betrifft, wird frei. Was den Kunden, das
+# Netz oder die Aussenwelt betrifft, bleibt.
+
+frei: .github/workflows/**
+frei: .claude/**
+frei: scripts/pfad_pruefung.py
+frei: scripts/setup-repo.sh
+frei: scripts/setup-labels.sh
+
+# Bewusst NICHT frei, auch jetzt nicht:
+#
+#   .github/aufbauphase.txt       Diese Datei. Wer die Frist selbst
+#                                 verlaengern kann, hat keine Frist.
+#   .github/geschuetzte-pfade.txt Die Liste. Waere sie frei, koennte
+#                                 der Agent die Zeile oben wieder
+#                                 herausnehmen — zwei Schritte zum
+#                                 selben Ergebnis.
+#   tests/** und die Testmuster   Das Netz. Ein entschaerfter Test faellt
+#                                 niemandem auf — genau die Tuer aus
+#                                 Gegenprobe (c) in setup-repo.sh.
+#   docs/plan.md                  Scope. Gehoert Firat, Phase hin oder her.
+#   docs/pilotnutzer.md           Der Kunde.
+#   package.json und Lockdateien  Lieferkette.

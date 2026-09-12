@@ -13,6 +13,7 @@ Liste diese Tests kippen, und die Liste soll sich aendern duerfen.
 
 from __future__ import annotations
 
+import pathlib
 import unittest
 
 from scripts.pfad_pruefung import menschliche_freigaben, nur_neue_zeilen, passt, treffer
@@ -198,4 +199,126 @@ class WaechterSchuetztSichSelbst(unittest.TestCase):
                 self.assertFalse(
                     any(passt(datei, m) for m in muster),
                     f"{datei} ist gewöhnlicher Code und sollte ohne Freigabe änderbar sein",
+                )
+
+
+class Aufbauphase(unittest.TestCase):
+    """
+    Die befristete Lockerung aus #61.
+
+    Geprueft wird gegen erzeugte Dateien, nicht gegen .github/aufbauphase.txt:
+    Das Enddatum dort wandert, und ein Test, der am 1. Oktober rot wird, weil
+    das Datum vorbei ist, sagt nichts ueber die Logik.
+    """
+
+    import datetime as _dt
+
+    def _datei(self, inhalt: str):
+        import tempfile
+
+        pfad = pathlib.Path(tempfile.mkdtemp()) / "aufbauphase.txt"
+        pfad.write_text(inhalt, encoding="utf-8")
+        return pfad
+
+    INHALT = "bis: 2026-09-30\nfrei: .github/workflows/**\nfrei: .claude/**\n"
+
+    def test_vor_dem_datum_aktiv(self) -> None:
+        from scripts.pfad_pruefung import aufbauphase
+
+        aktiv, ende, frei = aufbauphase(self._datei(self.INHALT), self._dt.date(2026, 9, 12))
+
+        self.assertTrue(aktiv)
+        self.assertEqual(ende, self._dt.date(2026, 9, 30))
+        self.assertIn(".github/workflows/**", frei)
+
+    def test_am_letzten_tag_noch_aktiv(self) -> None:
+        """'bis einschliesslich' — sonst endet sie einen Tag zu frueh."""
+        from scripts.pfad_pruefung import aufbauphase
+
+        aktiv, _, _ = aufbauphase(self._datei(self.INHALT), self._dt.date(2026, 9, 30))
+
+        self.assertTrue(aktiv)
+
+    def test_nach_dem_datum_nicht_mehr(self) -> None:
+        """Der Kern: Sie laeuft ab, ohne dass jemand etwas tut."""
+        from scripts.pfad_pruefung import aufbauphase
+
+        aktiv, _, _ = aufbauphase(self._datei(self.INHALT), self._dt.date(2026, 10, 1))
+
+        self.assertFalse(aktiv)
+
+    def test_tests_sind_nie_frei(self) -> None:
+        """Das Netz bleibt hart, in jeder Phase."""
+        from scripts.pfad_pruefung import aufbauphase
+
+        _, _, frei = aufbauphase(self._datei(self.INHALT), self._dt.date(2026, 9, 12))
+
+        for muster in frei:
+            self.assertFalse(passt("tests/quiz.test.ts", muster), f"tests/ frei über {muster}")
+
+    def test_fehlende_datei_ist_keine_lockerung(self) -> None:
+        """Wer die Datei loescht, bekommt die strengen Regeln zurueck."""
+        from scripts.pfad_pruefung import aufbauphase
+
+        aktiv, ende, frei = aufbauphase(pathlib.Path("/gibt/es/nicht.txt"))
+
+        self.assertFalse(aktiv)
+        self.assertIsNone(ende)
+        self.assertEqual(frei, [])
+
+    def test_unlesbares_datum_ist_kein_freibrief(self) -> None:
+        from scripts.pfad_pruefung import aufbauphase
+
+        aktiv, _, frei = aufbauphase(self._datei("bis: demnächst\nfrei: .claude/**\n"))
+
+        self.assertFalse(aktiv)
+        self.assertEqual(frei, [])
+
+    def test_ohne_datum_keine_lockerung(self) -> None:
+        """Eine Liste freier Muster ohne Frist waere eine unbefristete Ausnahme."""
+        from scripts.pfad_pruefung import aufbauphase
+
+        aktiv, _, frei = aufbauphase(self._datei("frei: .claude/**\n"))
+
+        self.assertFalse(aktiv)
+        self.assertEqual(frei, [])
+
+
+class LockerungKannSichNichtSelbstVerlaengern(unittest.TestCase):
+    """
+    Gegen die echten Dateien, wie WaechterSchuetztSichSelbst.
+
+    Der Pruefer in PR #62 hat gefunden, dass .github/aufbauphase.txt nicht
+    geschuetzt war: Der Agent haette das Enddatum selbst verschieben koennen.
+    Beim Beheben fiel die zweite Schicht auf — .github/geschuetzte-pfade.txt
+    stand in der frei:-Liste, also haette er die Zeile auch wieder entfernen
+    koennen. Zwei Wege zum selben Ergebnis: eine Frist, die keine ist.
+    """
+
+    SELBSTBEZUEGLICH = [
+        ".github/aufbauphase.txt",
+        ".github/geschuetzte-pfade.txt",
+    ]
+
+    def test_stehen_unter_schutz(self) -> None:
+        from scripts.pfad_pruefung import MUSTERDATEI, zeilen
+
+        muster = zeilen(MUSTERDATEI)
+        for datei in self.SELBSTBEZUEGLICH:
+            with self.subTest(datei=datei):
+                self.assertTrue(
+                    any(passt(datei, m) for m in muster),
+                    f"{datei} steuert die Freigabepflicht und muss geschützt sein",
+                )
+
+    def test_sind_nicht_freigestellt(self) -> None:
+        """Schutz nuetzt nichts, wenn die Lockerung ihn gleich wieder aufhebt."""
+        from scripts.pfad_pruefung import AUFBAUDATEI, aufbauphase
+
+        _, _, frei = aufbauphase(AUFBAUDATEI)
+        for datei in self.SELBSTBEZUEGLICH:
+            with self.subTest(datei=datei):
+                self.assertFalse(
+                    any(passt(datei, m) for m in frei),
+                    f"{datei} ist während der Aufbauphase frei — damit ist die Frist wertlos",
                 )

@@ -28,12 +28,14 @@ import argparse
 import json
 import os
 import sys
+from datetime import date
 from fnmatch import fnmatch
 from pathlib import Path
 
 WURZEL = Path(__file__).resolve().parent.parent
 MUSTERDATEI = WURZEL / ".github" / "geschuetzte-pfade.txt"
 MENSCHENDATEI = WURZEL / "scripts" / "menschen.txt"
+AUFBAUDATEI = WURZEL / ".github" / "aufbauphase.txt"
 
 
 def zeilen(pfad: Path) -> list[str]:
@@ -85,6 +87,37 @@ def nur_neue_zeilen(pr: dict, datei: str) -> bool:
     return False
 
 
+def aufbauphase(pfad: Path, heute: date | None = None) -> tuple[bool, date | None, list[str]]:
+    """
+    Liest die befristete Lockerung: (aktiv, Enddatum, freie Muster).
+
+    Fehlt die Datei oder das Datum, ist die Phase nicht aktiv. Das ist die
+    sichere Richtung: Wer die Datei loescht, bekommt die strengen Regeln
+    zurueck, nicht gar keine.
+    """
+    if not pfad.exists():
+        return False, None, []
+
+    ende: date | None = None
+    frei: list[str] = []
+    for zeile in pfad.read_text(encoding="utf-8").splitlines():
+        zeile = zeile.split("#", 1)[0].strip()
+        if zeile.startswith("bis:"):
+            try:
+                ende = date.fromisoformat(zeile[4:].strip())
+            except ValueError:
+                # Ein unlesbares Datum ist kein Freibrief.
+                return False, None, []
+        elif zeile.startswith("frei:"):
+            muster = zeile[5:].strip()
+            if muster:
+                frei.append(muster)
+
+    if ende is None:
+        return False, None, []
+    return (heute or date.today()) <= ende, ende, frei
+
+
 def menschliche_freigaben(pr: dict, menschen: list[str]) -> list[str]:
     """Letzter Review-Stand je Person; nur APPROVED von echten Nutzerkonten."""
     stand: dict[str, str] = {}
@@ -123,6 +156,20 @@ def main() -> int:
 
     gefunden = treffer(dateien, muster)
 
+    # Befristete Lockerung fuer den Aufbau. Was hier durchgeht, ist nicht
+    # ungeschuetzt — es ist bis zu einem Datum von der Freigabepflicht
+    # befreit. Danach greift die normale Regel wieder von selbst.
+    aktiv, ende, frei_muster = aufbauphase(AUFBAUDATEI)
+    aufbau_frei = []
+    if aktiv:
+        rest = []
+        for datei, m in gefunden:
+            if m in frei_muster:
+                aufbau_frei.append((datei, m))
+            else:
+                rest.append((datei, m))
+        gefunden = rest
+
     # Reine Ergänzungen an Testdateien durchlassen.
     durchgelassen = []
     if pr.get("files"):
@@ -136,6 +183,13 @@ def main() -> int:
         gefunden = rest
 
     print(f"Geänderte Dateien: {len(dateien)}")
+    if aktiv and ende:
+        tage = (ende - date.today()).days
+        print(f"Aufbauphase aktiv bis {ende} (noch {tage} Tage).")
+        for d, m in aufbau_frei:
+            print(f"  ohne Freigabe (Aufbauphase): {d}   (Muster: {m})")
+    elif ende:
+        print(f"Aufbauphase abgelaufen am {ende}. Normale Regeln gelten.")
     for d in durchgelassen:
         print(f"  durchgelassen (nur ergänzt): {d}")
 
