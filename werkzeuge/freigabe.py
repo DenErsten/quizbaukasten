@@ -364,3 +364,23 @@ def kommentieren(art: str, nummer: int, text: str, aufruf: Aufruf = _gh) -> None
     if art not in ("issue", "pr"):
         raise ValueError(f"Weder Issue noch PR: {art!r}")
     aufruf([art, "comment", str(nummer), "--body", text])
+
+
+def issue_anlegen(titel: str, koerper: str, aufruf: Aufruf = _gh) -> str:
+    """
+    Legt ein Issue als Vorschlag an und gibt seine URL zurueck.
+
+    `status:vorschlag` steht hier fest im Code und ist kein Parameter. Ein
+    Label, das der Aufrufer waehlen darf, waere frueher oder spaeter
+    `status:freigegeben` — und damit haette sich die Kette selbst freigegeben.
+    Gate G2 bleibt ein Klick von Firat, auch fuer ein Issue, das aus seinem
+    eigenen Gespraech stammt.
+    """
+    if not titel.strip():
+        raise ValueError("Ein Issue ohne Titel findet niemand wieder.")
+    return aufruf([
+        "issue", "create",
+        "--title", titel.strip(),
+        "--body", koerper,
+        "--label", "status:vorschlag",
+    ]).strip()

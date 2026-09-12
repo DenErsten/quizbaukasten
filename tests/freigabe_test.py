@@ -13,6 +13,7 @@ import json
 import os
 import unittest
 
+from werkzeuge import freigabe
 from werkzeuge.freigabe import (
     hat_abnahmekriterium,
     issue_freigeben,
@@ -229,3 +230,35 @@ class LaufendeChecks(unittest.TestCase):
 
         self.assertEqual(laufende_laeufe(Aufzeichnung("[]")), [])
 
+
+
+class IssueAnlegen(unittest.TestCase):
+    """
+    Gate G2 gilt auch fuer Issues, die aus Firats eigenem Gespraech stammen
+    (#102). Das Label steht im Code und ist kein Parameter.
+    """
+
+    def test_legt_mit_status_vorschlag_an(self) -> None:
+        befehle: list = []
+        freigabe.issue_anlegen("T", "K", aufruf=lambda b: (befehle.append(b), "https://x/1")[1])
+
+        self.assertIn("--label", befehle[0])
+        self.assertEqual(befehle[0][befehle[0].index("--label") + 1], "status:vorschlag")
+
+    def test_setzt_niemals_status_freigegeben(self) -> None:
+        befehle: list = []
+        freigabe.issue_anlegen("T", "K", aufruf=lambda b: (befehle.append(b), "u")[1])
+
+        self.assertNotIn("status:freigegeben", " ".join(befehle[0]))
+
+    def test_gibt_die_url_zurueck(self) -> None:
+        url = freigabe.issue_anlegen("T", "K", aufruf=lambda b: "https://x/7\n")
+
+        self.assertEqual(url, "https://x/7")
+
+    def test_ohne_titel_wird_nichts_angelegt(self) -> None:
+        befehle: list = []
+        with self.assertRaises(ValueError):
+            freigabe.issue_anlegen("   ", "K", aufruf=lambda b: befehle.append(b) or "u")
+
+        self.assertEqual(befehle, [])
