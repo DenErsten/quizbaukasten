@@ -81,3 +81,56 @@ class DarfFreigeben(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DerFehlerStehtAmKnopf(unittest.TestCase):
+    """
+    Wohin die Meldung geschrieben wird (#119).
+
+    GRENZE DIESES TESTS, ausdruecklich: Er liest den Quelltext von
+    freigabe.html, er fuehrt ihn nicht aus. Ein echter Nachweis braeuchte
+    einen Browser oder jsdom — eine neue Abhaengigkeit in einer geschuetzten
+    Datei, und das waere eine groessere Aenderung als der Fehler, den sie
+    absichern soll.
+
+    Was er dafuer wirklich zeigt: Das Ziel der Einfuegung wird aus dem
+    gedrueckten Knopf abgeleitet, nicht aus einem festen Element irgendwo
+    auf der Seite. Genau das war der Fehler — die Meldung ging in die
+    Statuszeile am Seitenende, weit weg vom Knopf.
+    """
+
+    def _seite(self) -> str:
+        from pathlib import Path
+
+        return (Path(__file__).resolve().parent.parent / "werkzeuge" / "freigabe.html").read_text(
+            encoding="utf-8"
+        )
+
+    def test_die_meldung_geht_in_den_kasten_des_knopfes(self) -> None:
+        seite = self._seite()
+
+        self.assertIn("knopf.parentElement.insertAdjacentHTML", seite)
+        self.assertIn("tatFehlerZuHtml(daten.fehler)", seite)
+
+    def test_eine_alte_meldung_wird_vorher_entfernt(self) -> None:
+        """Sonst stapeln sich beim zweiten Versuch zwei Meldungen uebereinander."""
+        seite = self._seite()
+
+        self.assertIn('knopf.parentElement.querySelector(".tat-fehler")', seite)
+        self.assertIn(".remove()", seite)
+
+    def test_die_statuszeile_bleibt_zusaetzlich(self) -> None:
+        """
+        Sie war nicht falsch, nur zu weit weg. Zwei Orte sind hier besser als
+        einer: einer am Knopf, einer fuer den Gesamtzustand der Seite.
+        """
+        seite = self._seite()
+
+        self.assertIn("stand.textContent = `Fehler: ${daten.fehler}`", seite)
+
+    def test_der_knopf_wird_wieder_bedienbar(self) -> None:
+        """Ein gescheiterter Versuch darf den Knopf nicht endgueltig sperren."""
+        seite = self._seite()
+        nach_fehler = seite.split("tatFehlerZuHtml(daten.fehler)")[1][:300]
+
+        self.assertIn("knopf.disabled = false", nach_fehler)
