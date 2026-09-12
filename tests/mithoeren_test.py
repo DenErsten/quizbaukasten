@@ -125,15 +125,21 @@ class Transkript(unittest.TestCase):
         gesperrt.chmod(0o500)
         self.addCleanup(gesperrt.chmod, 0o700)
 
+        # Verschiedene Saetze, seit die Ueberlappung Wiederholungen
+        # herausfiltert (#94). Geprueft wird hier das Schreibrecht, nicht die
+        # Entdopplung — mit einem festen Satz pruefte der Test beides und
+        # damit nichts Bestimmtes.
+        saetze = iter(["erster Satz", "zweiter Satz"])
         zeilen = list(
-            strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: "gesagt", None,
+            strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: next(saetze, ""), None,
                   gesperrt / "transkript.jsonl")
         )
 
         self.assertEqual(len(zeilen), 2, "Der Strom muss trotzdem liefern")
 
     def test_zeitmarken_stehen_im_transkript(self) -> None:
-        list(strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: "etwas", None, self.ziel))
+        saetze = iter(["etwas", "etwas anderes"])  # siehe oben, #94
+        list(strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: next(saetze, ""), None, self.ziel))
 
         self.assertEqual([z["zeit"] for z in self._zeilen()], [0.0, 3.0])
 
@@ -259,3 +265,68 @@ class ModellWirdGewaehlt(unittest.TestCase):
             )
         self.assertIn("modell_faster", rumpf)
         self.assertIn("path_or_hf_repo=modell", rumpf)
+
+
+class UeberlappendeStuecke(unittest.TestCase):
+    """
+    #94: Starre Schnitte zerlegen Saetze. Eine Minute Gespraech ergab eine
+    Zeile, weil Whisper aus Bruchstuecken nichts macht und leere Zeilen
+    verworfen werden.
+    """
+
+    def setUp(self) -> None:
+        self.ordner = Path(tempfile.mkdtemp())
+        self.quelle = self.ordner / "probe.wav"
+        wav_schreiben(self.quelle, sekunden=9.0)
+
+    def test_stuecke_ueberlappen_sich(self) -> None:
+        """Fall 1: Jedes Stueck traegt das Ende des vorigen."""
+        stuecke = list(stuecke_aus_datei(self.quelle, sekunden=3.0, ueberlappung=1.0))
+
+        self.assertGreaterEqual(len(stuecke), 2)
+        erwartet = int(ABTASTRATE * 3.0) * BREITE
+        self.assertEqual(len(stuecke[0][1]), erwartet, "Das erste hat nichts davor")
+        self.assertEqual(
+            len(stuecke[1][1]), erwartet + int(ABTASTRATE * 1.0) * BREITE,
+            "Das zweite traegt eine Sekunde mehr",
+        )
+
+    def test_ohne_ueberlappung_bleibt_alles_wie_vorher(self) -> None:
+        """Gegenprobe: ueberlappung=0 ergibt die alten, starren Stuecke."""
+        stuecke = list(stuecke_aus_datei(self.quelle, sekunden=3.0, ueberlappung=0.0))
+
+        erwartet = int(ABTASTRATE * 3.0) * BREITE
+        for _, daten in stuecke:
+            self.assertEqual(len(daten), erwartet)
+
+    def test_derselbe_satz_zweimal_gibt_eine_zeile(self) -> None:
+        """Fall 2: Die Ueberlappung darf keinen Hinweis verdoppeln."""
+        saetze = iter(["das muss schnell gehen", "das muss schnell gehen", "und noch etwas"])
+        zeilen = list(
+            strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: next(saetze, ""))
+        )
+
+        texte = [z["text"] for z in zeilen]
+        self.assertEqual(texte, ["das muss schnell gehen", "und noch etwas"])
+
+    def test_zwei_verschiedene_saetze_geben_zwei_zeilen(self) -> None:
+        """
+        Fall 3, die Gegenprobe zu Fall 2: Ohne ihn bestuende der auch bei
+        einer Umsetzung, die alles nach der ersten Zeile verwirft.
+        """
+        saetze = iter(["erster Satz", "zweiter Satz", "dritter Satz"])
+        zeilen = list(
+            strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: next(saetze, ""))
+        )
+
+        self.assertEqual([z["text"] for z in zeilen],
+                         ["erster Satz", "zweiter Satz", "dritter Satz"])
+
+    def test_ein_satz_darf_spaeter_wiederkehren(self) -> None:
+        """Nur unmittelbare Wiederholung zaehlt — wer zweimal dasselbe sagt, sagt es zweimal."""
+        saetze = iter(["das muss schnell gehen", "etwas anderes", "das muss schnell gehen"])
+        zeilen = list(
+            strom(stuecke_aus_datei(self.quelle, 3.0), lambda _: next(saetze, ""))
+        )
+
+        self.assertEqual(len(zeilen), 3)

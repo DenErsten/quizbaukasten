@@ -50,48 +50,102 @@ from typing import Callable, Iterable, Iterator
 # und dasselbe, auf das transkribieren.sh normalisiert.
 ABTASTRATE = 16_000
 BREITE = 2  # Bytes je Abtastwert (16 bit)
+# Wie viel vom vorigen Stueck ins naechste mitgenommen wird.
+#
+# Starre Schnitte zerlegen Saetze: Ein Satz von drei Sekunden, der bei
+# Sekunde vier beginnt, liegt zur Haelfte im einen und zur Haelfte im
+# naechsten Stueck. Whisper macht aus beiden Bruchstuecken nichts, leere
+# Zeilen werden verworfen — und eine Minute Gespraech ergab eine Zeile (#94).
+#
+# Eine Sekunde reicht fuer die meisten Wortgrenzen und kostet wenig: Sie
+# verlaengert jedes Stueck um ein Fuenftel.
+UEBERLAPPUNG = 1.0
 
 Stueck = tuple[float, bytes]
 Erkennung = Callable[[bytes], str]
 
 
-def stuecke_aus_datei(pfad: Path, sekunden: float = 5.0) -> Iterator[Stueck]:
-    """Zerlegt eine WAV-Datei in Stuecke. Fuer Tests und zum Nachstellen."""
+class Ueberlappend:
+    """
+    Haengt jedem Stueck das Ende des vorigen voran.
+
+    `ueberlappung_bytes` bleibt lesbar, weil strom() wissen muss, welcher
+    Teil schon einmal da war: Ein Mitschnitt, der die Ueberlappung mit
+    aufzeichnet, waere laenger als das Gespraech.
+    """
+
+    def __init__(self, roh: Iterator[tuple[float, bytes]], ueberlappung_bytes: int) -> None:
+        self._roh = roh
+        self.ueberlappung_bytes = ueberlappung_bytes
+
+    def __iter__(self) -> Iterator[Stueck]:
+        rest = b""
+        for zeit, daten in self._roh:
+            yield zeit, rest + daten
+            rest = daten[-self.ueberlappung_bytes:] if self.ueberlappung_bytes else b""
+
+
+def stuecke_aus_datei(
+    pfad: Path, sekunden: float = 5.0, ueberlappung: float = UEBERLAPPUNG
+) -> Ueberlappend:
+    """
+    Zerlegt eine WAV-Datei in Stuecke. Fuer Tests und zum Nachstellen.
+
+    Gibt das Ueberlappend-Objekt zurueck statt "yield from" — sonst liegt
+    ueberlappung_bytes am inneren Objekt und ist von aussen unsichtbar. Genau
+    daran hat strom() den doppelten Anfang nicht mehr erkannt und ihn in den
+    Mitschnitt geschrieben.
+    """
     with wave.open(str(pfad), "rb") as datei:
         rate = datei.getframerate()
+        breite = datei.getsampwidth() * datei.getnchannels()
         je_stueck = int(rate * sekunden)
+        roh = []
         gelesen = 0
         while True:
             daten = datei.readframes(je_stueck)
             if not daten:
-                return
-            yield gelesen / rate, daten
-            gelesen += len(daten) // (datei.getsampwidth() * datei.getnchannels())
+                break
+            roh.append((gelesen / rate, daten))
+            gelesen += len(daten) // breite
+
+    return Ueberlappend(iter(roh), int(rate * ueberlappung) * breite)
 
 
-def stuecke_vom_mikrofon(sekunden: float = 5.0) -> Iterator[Stueck]:
+def stuecke_vom_mikrofon(
+    sekunden: float = 5.0, ueberlappung: float = UEBERLAPPUNG
+) -> Ueberlappend:
     """Nimmt vom Standard-Eingang auf. Import spaet, damit Tests ohne Geraet laufen."""
     import sounddevice  # noqa: PLC0415
 
     je_stueck = int(ABTASTRATE * sekunden)
-    verstrichen = 0.0
-    with sounddevice.RawInputStream(
-        samplerate=ABTASTRATE, channels=1, dtype="int16", blocksize=je_stueck
-    ) as strom_ein:
-        while True:
-            daten, uebergelaufen = strom_ein.read(je_stueck)
-            if uebergelaufen:
-                # Nicht abbrechen: Ein verlorenes Stueck ist aergerlich, ein
-                # abgebrochenes Mithoeren mitten im Gespraech ist schlimmer.
-                print("Warnung: Audio-Stueck verloren", file=sys.stderr)
-            yield verstrichen, bytes(daten)
-            verstrichen += sekunden
+
+    def roh() -> Iterator[tuple[float, bytes]]:
+        verstrichen = 0.0
+        # Ohne blocksize waehlt sounddevice selbst. Ein Blockmass von 80.000
+        # Frames ist keines, sondern eine Stueckgroesse — read() holt sich
+        # ohnehin so viele Frames, wie es braucht.
+        with sounddevice.RawInputStream(
+            samplerate=ABTASTRATE, channels=1, dtype="int16"
+        ) as strom_ein:
+            while True:
+                daten, uebergelaufen = strom_ein.read(je_stueck)
+                if uebergelaufen:
+                    # Nicht abbrechen: Ein verlorenes Stueck ist aergerlich,
+                    # ein abgebrochenes Mithoeren mitten im Gespraech ist
+                    # schlimmer.
+                    print("Warnung: Audio-Stueck verloren", file=sys.stderr)
+                yield verstrichen, bytes(daten)
+                verstrichen += sekunden
+
+    return Ueberlappend(roh(), int(ABTASTRATE * ueberlappung) * BREITE)
 
 
 # Ab wie vielen wartenden Stuecken der Rueckstand gemeldet wird. Drei
 # Stuecke sind bei fuenf Sekunden Laenge eine Viertelminute Verzug — ab da
 # hinken die Hinweise dem Gespraech spuerbar hinterher.
 RUECKSTAND_AB = 3
+
 
 # Ausdruecklich, nicht die Voreinstellung der Bibliothek. mlx_whisper nimmt
 # ohne Angabe "whisper-tiny" — das kleinste verfuegbare Modell. Eine Minute
@@ -125,6 +179,8 @@ class Puffer:
 
     def __init__(self, stuecke: Iterable[Stueck]) -> None:
         self._quelle = stuecke
+        # Durchreichen, sonst verliert strom() die Angabe hinter dem Puffer.
+        self.ueberlappung_bytes = getattr(stuecke, "ueberlappung_bytes", 0)
         self._schlange: queue.Queue = queue.Queue()
         self._leser = threading.Thread(target=self._lesen, daemon=True)
         self._gestartet = False
@@ -242,6 +298,10 @@ def strom(
             mitschreiber.setframerate(ABTASTRATE)
 
         gemeldeter_rueckstand = 0
+        zuletzt_gesagt = ""
+        # Der doppelt gelieferte Anfang gehoert nicht in den Mitschnitt.
+        doppelt = getattr(stuecke, "ueberlappung_bytes", 0)
+        erstes = True
         for zeit, daten in stuecke:
             # Der Rueckstand gehoert in den Strom, nicht nur auf stderr: Wer
             # die Hinweise liest, soll erfahren, dass sie hinterherhinken.
@@ -253,10 +313,18 @@ def strom(
                 gemeldeter_rueckstand = 0
 
             if mitschreiber is not None:
-                mitschreiber.writeframes(daten)
+                mitschreiber.writeframes(daten if erstes else daten[doppelt:])
+            erstes = False
             text = (erkennen(daten) or "").strip()
             if not text:
                 continue
+
+            # Durch die Ueberlappung hoert Whisper denselben Satz zweimal.
+            # Wer zweimal dasselbe hoert, gibt es einmal weiter — sonst loest
+            # ausloeser.py denselben Hinweis doppelt aus.
+            if text == zuletzt_gesagt:
+                continue
+            zuletzt_gesagt = text
 
             zeile = {"zeit": round(zeit, 2), "text": text}
             if mitschrift is not None:
