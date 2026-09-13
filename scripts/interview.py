@@ -63,6 +63,12 @@ STILLE_STUECKE = 2
 PAUSE = STILLE_STUECKE * STUECK_SEKUNDEN + 3.0
 
 WEITER = "weiter"
+ANTWORT = "antwort"
+
+# Wie oft das Werkzeug je Punkt auf eine Frage des Menschen antwortet, bevor
+# es auf der Leitfrage besteht. Ohne Grenze liesse sich das Gespraech
+# beliebig vom Thema wegfuehren.
+ANTWORTEN_JE_PUNKT = 2
 NACHFRAGEN = "nachfragen"
 OFFEN = "offen"
 ENDE = "ende"
@@ -263,6 +269,7 @@ class Interview:
         pause: float = PAUSE,
         pruefungen: dict[str, Callable[[str], bool]] | None = None,
         stille_stuecke: int = STILLE_STUECKE,
+        fuehrung: Callable[..., dict] | None = None,
     ) -> None:
         self._punkte = [dict(p) for p in punkte]
         self._pause = pause
@@ -275,6 +282,13 @@ class Interview:
                     f"die es nicht gibt. Bekannt: {', '.join(sorted(self._pruefungen))}"
                 )
         self._stille_stuecke = stille_stuecke
+        # Ohne Fuehrung laeuft alles wie bisher: lokale Pruefungen, kein Wort
+        # verlaesst den Rechner. Sie wird nur gesetzt, wenn jemand das
+        # gefuehrte Gespraech ausdruecklich gestartet hat (#125).
+        self._fuehrung = fuehrung
+        self._rueckfrage_text = ""
+        self._antworten = 0
+        self._fuehrung_fehler: str | None = None
         self._nr = 0
         self._gesagt: list[str] = []
         self._zuletzt: float | None = None
@@ -333,21 +347,69 @@ class Interview:
     def _entscheiden(self) -> dict:
         punkt = self._punkte[self._nr]
         gesagt = " ".join(self._gesagt).strip()
+
+        if self._fuehrung is not None:
+            ereignis = self._gefuehrt(punkt, gesagt)
+            if ereignis is not None:
+                return ereignis
+            # Faellt die Fuehrung aus, entscheidet die lokale Pruefung weiter.
+            # Ein Gespraech laesst sich nicht wiederholen — es darf nicht am
+            # Netz haengen.
+
         pruefung = self._pruefungen[punkt["pruefung"]]
 
         if pruefung(gesagt):
             return self._ablegen(punkt, gesagt, offen=False, art=WEITER)
         if not self._nachgefragt:
-            self._nachgefragt = True
-            # Die Uhr laeuft neu: Nach einer Rueckfrage darf man ueberlegen.
+            return self._nachfragen(punkt, punkt.get("rueckfrage", ""))
+        return self._ablegen(punkt, gesagt, offen=True, art=OFFEN)
+
+    # -- der gefuehrte Weg --------------------------------------------------
+
+    def _gefuehrt(self, punkt: dict, gesagt: str) -> dict | None:
+        """
+        Einen Zug von der Gespraechsfuehrung holen.
+
+        Gibt None zurueck, wenn sie nicht antwortet — dann entscheidet die
+        lokale Pruefung. Der Fehler wird gemerkt und im Stand gezeigt: Eine
+        Fuehrung, die still ausfaellt, saehe aus wie eine, die schlecht
+        fragt (#99).
+        """
+        try:
+            zug = self._fuehrung(punkt, gesagt, list(self._ergebnisse))
+            self._fuehrung_fehler = None
+        except Exception as fehler:  # noqa: BLE001
+            self._fuehrung_fehler = str(fehler)
+            return None
+
+        art = zug.get("zug")
+        if art == "traegt":
+            return self._ablegen(punkt, gesagt, offen=False, art=WEITER)
+
+        if art == "antworten" and self._antworten < ANTWORTEN_JE_PUNKT:
+            # Eine Frage an das Werkzeug zaehlt nicht als Rueckfrage: Sie
+            # bringt den Punkt nicht weiter, sie raeumt ein Hindernis weg.
+            # Am 2026-09-12 und 2026-09-13 hat Firat zweimal gefragt und
+            # zweimal keine Antwort bekommen (#131).
+            self._antworten += 1
+            self._gesagt = []
             self._zuletzt = None
             self._stille = 0
-            return {
-                "art": NACHFRAGEN,
-                "titel": punkt["titel"],
-                "rueckfrage": punkt.get("rueckfrage", ""),
-            }
+            self._rueckfrage_text = zug.get("satz", "")
+            return {"art": ANTWORT, "titel": punkt["titel"],
+                    "satz": zug.get("satz", "")}
+
+        if not self._nachgefragt:
+            return self._nachfragen(punkt, zug.get("satz", "") or punkt.get("rueckfrage", ""))
         return self._ablegen(punkt, gesagt, offen=True, art=OFFEN)
+
+    def _nachfragen(self, punkt: dict, satz: str) -> dict:
+        self._nachgefragt = True
+        self._rueckfrage_text = satz
+        # Die Uhr laeuft neu: Nach einer Rueckfrage darf man ueberlegen.
+        self._zuletzt = None
+        self._stille = 0
+        return {"art": NACHFRAGEN, "titel": punkt["titel"], "rueckfrage": satz}
 
     def _ablegen(self, punkt: dict, gesagt: str, offen: bool, art: str) -> dict:
         self._ergebnisse.append({
@@ -361,6 +423,8 @@ class Interview:
         self._zuletzt = None
         self._stille = 0
         self._nachgefragt = False
+        self._rueckfrage_text = ""
+        self._antworten = 0
         if self.fertig:
             return {"art": ENDE, "titel": punkt["titel"], "offen": offen, "vorher": art}
         return {"art": art, "titel": punkt["titel"], "naechste": self._punkte[self._nr]["frage"]}
@@ -386,10 +450,11 @@ class Interview:
             "frage": "" if self.fertig else self._punkte[self._nr]["frage"],
             "titel": "" if self.fertig else self._punkte[self._nr]["titel"],
             "nachgefragt": self._nachgefragt,
-            "rueckfrage": (
-                self._punkte[self._nr].get("rueckfrage", "")
-                if self._nachgefragt and not self.fertig else ""
-            ),
+            "rueckfrage": self._rueckfrage_text if not self.fertig else "",
+            # Eine Fuehrung, die ausgefallen ist, wird genannt. Sonst sieht
+            # sie aus wie eine, die schlecht fragt.
+            "fuehrung_fehler": self._fuehrung_fehler,
+            "gefuehrt": self._fuehrung is not None,
             "beantwortet": list(self._ergebnisse),
             "offene": [e["titel"] for e in self._ergebnisse if e["offen"]],
         }
