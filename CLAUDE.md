@@ -43,6 +43,17 @@ Alles außerhalb von Code erzeugt weiter ein **Review-Objekt**: ein Issue mit
   PR nur für den Test, mit Begründung, und lässt ihn freigeben. Ein grüner
   Lauf, der durch Wegnehmen des Netzes entstanden ist, ist eine Lüge an alle,
   die danach kommen.
+
+  **Eine Ausnahme, und nur diese:** Schreibt ein Test eine Konstante fest,
+  die der Code ändern muss, ist er nicht unabhängig reparierbar — jede der
+  beiden Hälften wäre für sich rot, und ein roter Pull Request lässt sich
+  nicht mergen. Dann dürfen Test und Code in einem PR stehen. Drei
+  Bedingungen hängen daran, und sie sind die Ausnahme, nicht Beiwerk:
+  Der PR-Text sagt, welcher Test warum mitgeht; der Abschnitt
+  `## Abnahmenachweis` nennt die Änderung ausdrücklich; und der Test wird
+  dabei schärfer, nie weicher — aus einer getippten Zahl wird eine geprüfte
+  Beziehung. Wer diese Ausnahme für eine Entschärfung benutzt, hat sie
+  missbraucht, und genau das soll im PR-Text nachlesbar sein.
 - Ein Label `status:freigegeben` setzen oder entfernen — das ist Gate G2
 - Ein Release veröffentlichen (nur Draft anlegen) — das ist Gate G4
 - Nach Produktion ausliefern oder eine Produktions-Freigabe bestätigen
