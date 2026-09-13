@@ -69,12 +69,26 @@ statt eines Verbots eine Liste.
 
 - der Text eines Transkripts, wenn auf „Anforderungen ableiten" gedrückt wird
 - die Entwürfe, die dabei zurückkommen
+- während eines **geführten** Gesprächs: fortlaufend das zuletzt Gesagte,
+  damit daraus die nächste Frage entsteht. Nur nach einem ausdrücklichen
+  Start; ohne ihn läuft die Aufnahme vollständig lokal
 
 Zwei Bedingungen hängen daran, und sie sind Teil der Regel, nicht Beiwerk:
 Es passiert **nur auf Klick**, nie im Hintergrund, und die Oberfläche sagt
 vorher, dass Text herausgeht. Wer ein Gespräch mitschneidet, in dem etwas
 gesagt wurde, das nirgends hin soll, muss den Schritt auslassen können, ohne
 das Werkzeug zu verlassen.
+
+Beim geführten Gespräch steht der Klick **am Anfang** statt am Ende. Das ist
+kein aufgeweichter Klick, sondern ein anderer: Er gilt für die ganze Sitzung,
+und deshalb muss die Ansage davor stehen und nicht danach. Ohne ihn beginnt
+eine gewöhnliche Aufnahme — dieselbe wie vorher, ohne Netz, ohne Aufruf nach
+draußen. Das ist die Voreinstellung, nicht die Ausnahme.
+
+Der Grund für die Änderung steht in #125: Am 2026-09-13 sagte Firat „Ich
+möchte ein Spiel entwickeln", und die nächste Frage war „Woran merkst du,
+dass es fertig ist?". Vier von fünf Punkten blieben offen. Eine Frage, die
+zuhört, kann nur stellen, wer gehört hat, wovon die Rede ist.
 
 ---
 
@@ -158,10 +172,15 @@ Produkt. Was ihm zugesagt wurde, gilt trotzdem.
   widerlegt, sondern überholt: Firat will keinen Zwischenrufer, sondern einen
   Gesprächsführer. Die Frage, ob ein Einwurf im richtigen Moment kommt,
   stellt sich nicht mehr, wenn gar nicht eingeworfen wird.
-- **A6:** Ein geführtes Gespräch mit fünf Fragen und höchstens einer
-  Rückfrage je Frage liefert einen brauchbaren Rahmen. Ungeprüft. Kippt das,
-  ist es entweder zu wenig (der Rahmen bleibt leer) oder der Leitfaden ist
-  die falsche Struktur.
+- **A6:** ~~Ein geführtes Gespräch mit fünf Fragen und höchstens einer
+  Rückfrage je Frage liefert einen brauchbaren Rahmen.~~ **Widerlegt am
+  2026-09-13:** Im ersten funktionierenden Gespräch blieben vier von fünf
+  Punkten offen. Nicht weil die Prüfung zu streng war, sondern weil feste
+  Fragen an jemandem vorbeigehen, der gerade etwas anderes gesagt hat.
+- **A8:** Eine Frage, die ein Wort aus der vorherigen Antwort aufgreift,
+  holt mehr heraus als eine vorformulierte. Ungeprüft. Kippt das, liegt es
+  nicht an den Fragen, sondern daran, dass ein Erstgespräch für diese Art
+  von Klärung der falsche Ort ist.
 - **A7:** Der Gesprächspartner kann nach einem Produkt-Review mehr sagen als
   davor. Darauf steht die ganze Runde. Kippt das, sind Runden nur Aufwand.
 - **A4:** Wer das Werkzeug benutzt, arbeitet ohnehin mit GitHub. Sonst ist
@@ -185,3 +204,4 @@ Produkt. Was ihm zugesagt wurde, gilt trotzdem.
 | 2026-09-12 | Produkt gewechselt: Protokoll-Werkzeug statt Quizbaukasten | Beim Aufsetzen des Prozesses zeigte sich, dass das Werkzeug selbst das Ergebnis ist. Der Quizbaukasten war der Testfall, an dem es geprüft wurde. | Quizbaukasten wird Testfall, Werkzeug wird Produkt | Zwei Produkte, zwei Pläne | **A**, von Firat am 2026-09-12 |
 | 2026-09-12 | Text verlässt den Rechner: Anforderungen werden von Claude abgeleitet | Lokal bliebe die Qualität unter dem, was ein „fertig, wenn …" braucht. Ein Ableitungsschritt, der schlechte Anforderungen liefert, ist schlimmer als keiner — man sieht ihm an, dass er lief, nicht dass er danebenlag. | Lokales Modell, Plan bleibt unverändert | Claude über das vorhandene Abo, Plan wird präzisiert | **B**, von Firat am 2026-09-12, #102 |
 | 2026-09-12 | Vom Zwischenruf zum geführten Interview, und von einem Gespräch zu Runden | Der Zwischenruf unterbricht mitten im Satz, und ein einzelnes Gespräch fragt nach Dingen, die der Gesprächspartner ohne gebautes Produkt nicht beurteilen kann. | Zwischenruf verbessern, ein Gespräch bleibt ein Gespräch | Werkzeug führt das Interview, Runden aus Plan, Bauen, Review und Rückmeldung | **B**, von Firat am 2026-09-12 |
+| 2026-09-13 | Während eines geführten Gesprächs geht fortlaufend Text hinaus | Feste Fragen gehen an dem vorbei, was gerade gesagt wurde: Auf „ich möchte ein Spiel entwickeln" folgte „woran merkst du, dass es fertig ist?", und vier von fünf Punkten blieben offen. | Tieferer Fragebaum, alles lokal, kein Aufruf nach draußen | Claude bildet die nächste Frage aus dem Gesagten, Klick am Anfang der Sitzung | **B**, von Firat am 2026-09-13, #125 |
