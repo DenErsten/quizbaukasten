@@ -91,26 +91,113 @@ FUELLWOERTER = {
     "also", "halt", "eben", "ja", "ne", "äh", "ähm", "und", "oder", "aber",
     "der", "die", "das", "ein", "eine", "einen", "ist", "sind", "wir", "ich",
     "es", "man", "so", "dass", "zu", "in", "auf", "mit", "für", "von",
+    # Dazugekommen am 2026-09-13 (#130): Woerter, die in Whisper-Rauschen
+    # haeufig auftauchen und nie den Inhalt tragen. "Ist nicht sein sein"
+    # hat damit ein Inhaltswort statt dreien — "ohne Anmeldung" behaelt
+    # seine zwei und bleibt eine gueltige Antwort.
+    "sein", "seine", "seinen", "mal", "schon", "noch", "gerade", "irgendwie",
+    "eigentlich", "dann", "da", "wie", "was", "nun",
 }
+
+
+# ABSAGEN
+# -------
+# Am 2026-09-13 gingen drei von fuenf Antworten als beantwortet durch, die
+# woertlich "weiss ich nicht" lauteten. Die Pruefungen suchen Stichwoerter,
+# und "fertig", "nicht", "wenn" stecken in einer Absage genauso wie in einer
+# Antwort: "Ich weiss nicht warum das fertig sein sollte" enthaelt "fertig"
+# und genug Inhaltswoerter — bestanden.
+#
+# Gestern hat das Werkzeug mitten im Satz unterbrochen, heute nickt es. Das
+# zweite ist schlimmer: Ein Zwischenruf zur falschen Zeit faellt auf, ein
+# zustimmendes Nicken nicht. Am Ende steht ein Rahmen, der vollstaendig
+# aussieht und leer ist — und der Ableitungsschritt baut darauf auf (#130).
+ABSAGE = re.compile(
+    r"\b(wei(ß|ss)\s+(ich\s+)?(gerade\s+|noch\s+|jetzt\s+)?nicht"
+    r"|(ich\s+)?wei(ß|ss)\s+es\s+nicht"
+    r"|keine\s+ahnung"
+    r"|kann\s+ich\s+(dir\s+)?(gerade\s+|jetzt\s+)?nicht\s+sagen"
+    r"|gute\s+frage"
+    r"|bin\s+(ich\s+)?mir\s+nicht\s+sicher"
+    r"|m(ü|ue)sste\s+ich\s+(mal\s+)?(erst\s+)?(ü|ue)berlegen"
+    r"|(da\s+)?f(ä|ae)llt\s+mir\s+(gerade\s+)?nichts\s+ein"
+    r"|keine\s+idee)\b",
+    re.IGNORECASE,
+)
+
+# Fuellsel, das allein keinen Satz ausmacht.
+NUR_LAUT = re.compile(r"^[\s.,…!?-]*((ä|a)h+m?|hm+|also|naja|tja|ja|nee?|ne)[\s.,…!?-]*$", re.IGNORECASE)
+
+
+def _saetze(text: str) -> list[str]:
+    """Grob nach Satzzeichen geteilt, samt dem Zeichen, das den Satz beendet."""
+    teile = re.split(r"([.!?…]+)", text or "")
+    saetze = []
+    for i in range(0, len(teile), 2):
+        satz = teile[i].strip()
+        zeichen = teile[i + 1] if i + 1 < len(teile) else ""
+        if satz and not NUR_LAUT.match(satz):
+            saetze.append((satz, "?" in zeichen))
+    return saetze
+
+
+def ohne_absagen(text: str) -> str:
+    """
+    Was uebrig bleibt, wenn man Absagen und Rueckfragen streicht.
+
+    Nicht "ist das eine Absage?", sondern "was steht da ausser der Absage?".
+    Der Unterschied zaehlt bei gemischten Antworten: "Ich nutze das taeglich.
+    Ich weiss es nicht." enthaelt eine Antwort — "taeglich" — und die soll
+    zaehlen. Wer den ganzen Text verwirft, sobald irgendwo Unsicherheit
+    steht, macht den umgekehrten Fehler.
+
+    Eine Rueckfrage an das Werkzeug faellt ebenfalls weg. Am 2026-09-13 stand
+    "Gibt's eine Fehlermeldung?" als Antwort auf den Fehlerfall (#130).
+    """
+    behalten = [satz for satz, ist_frage in _saetze(text)
+                if not ist_frage and not ABSAGE.search(satz)]
+    return " ".join(behalten)
+
+
+def ist_absage(text: str) -> bool:
+    """Nach Abzug von Absagen und Rueckfragen bleibt nichts uebrig."""
+    return not ohne_absagen(text).strip()
 
 
 def _woerter(text: str) -> list[str]:
     return re.findall(r"[a-zäöüß]+", text.lower())
 
 
+def _ohne_wiederholung(woerter: list[str]) -> list[str]:
+    """
+    Unmittelbare Wortwiederholungen zaehlen einmal.
+
+    Whisper wiederholt sich, wenn es unsicher ist: "sein sein", und am
+    2026-09-12 "Audi Audi Audi Audi Audi". Solche Stellen sind kein Inhalt,
+    sondern ein Zeichen dafuer, dass die Erkennung geraten hat. Sie durften
+    bisher die Substanzpruefung bestehen (#130).
+    """
+    ergebnis: list[str] = []
+    for wort in woerter:
+        if not ergebnis or ergebnis[-1] != wort:
+            ergebnis.append(wort)
+    return ergebnis
+
+
 def _inhaltswoerter(text: str) -> list[str]:
-    return [w for w in _woerter(text) if w not in FUELLWOERTER]
+    return _ohne_wiederholung([w for w in _woerter(text) if w not in FUELLWOERTER])
 
 
 def _traegt(text: str, marker: set[str], mindestens: int = 3) -> bool:
-    """Ein Marker aus der Liste und genug Substanz drumherum."""
-    woerter = set(_woerter(text))
-    return bool(woerter & marker) and len(_inhaltswoerter(text)) >= mindestens
+    """Ein Marker aus der Liste und genug Substanz drumherum — im Rest."""
+    rest = ohne_absagen(text)
+    woerter = set(_woerter(rest))
+    return bool(woerter & marker) and len(_inhaltswoerter(rest)) >= mindestens
 
 
 def prueft_inhalt(text: str) -> bool:
     """Genug gesagt, um daraus einen Kontextsatz zu machen."""
-    return len(_inhaltswoerter(text)) >= 6
+    return len(_inhaltswoerter(ohne_absagen(text))) >= 6
 
 
 def prueft_pruefbar(text: str) -> bool:
@@ -119,13 +206,22 @@ def prueft_pruefbar(text: str) -> bool:
 
 
 def prueft_abgrenzung(text: str) -> bool:
-    """Eine Verneinung. Ohne sie ist keine Grenze gezogen worden."""
+    """
+    Eine Verneinung und etwas, das verneint wird.
+
+    "Ist nicht sein sein" bestand die Pruefung am 2026-09-13, weil "nicht"
+    darin steht (#130). Die Schwelle hochzudrehen war der falsche Weg — sie
+    haette auch "ohne Anmeldung" verworfen, zwei Woerter und eine richtige
+    Antwort. Stattdessen zaehlt "sein" nicht mehr als Inhalt: Es traegt in
+    "Ist nicht sein sein" nichts bei, waehrend "Anmeldung" es tut.
+    """
     return _traegt(text, ABGRENZUNG, mindestens=2)
 
 
 def prueft_zahl(text: str) -> bool:
-    """Eine Zahl. 'Einige' ist keine."""
-    return bool(ZAHL.search(text)) or bool(set(_woerter(text)) & ZAHLWOERTER)
+    """Eine Zahl. 'Einige' ist keine, 'weiss ich nicht' erst recht nicht."""
+    rest = ohne_absagen(text)
+    return bool(ZAHL.search(rest)) or bool(set(_woerter(rest)) & ZAHLWOERTER)
 
 
 def prueft_fehlerfall(text: str) -> bool:

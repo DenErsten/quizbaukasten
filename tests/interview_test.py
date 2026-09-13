@@ -146,15 +146,27 @@ class HoechstensEineRueckfrage(unittest.TestCase):
         self.assertEqual(i.stand()["offene"], [])
 
     def test_nie_zwei_rueckfragen_zur_selben_frage(self) -> None:
+        """
+        Gezaehlt wird je Frage, nicht insgesamt.
+
+        Vorher stand hier `arten.count(NACHFRAGEN) == 1` ueber beide Fragen
+        zusammen — und das ging nur auf, weil "weiss nicht" bei der zweiten
+        Frage faelschlich als Antwort durchging (es enthaelt "nicht", das
+        Stichwort der Abgrenzung). Seit #130 wird eine Absage als das
+        erkannt, was sie ist; jede Frage fragt jetzt einmal nach. Der Test
+        prueft damit endlich das, was sein Name sagt.
+        """
         i = Interview(ZWEI, pause=3.0)
-        arten = []
+        je_frage: dict[str, int] = {}
         for n in range(6):
             i.gehoert(n * 10.0, "weiß nicht")
             ereignis = i.takt(n * 10.0 + 4.0)
-            if ereignis:
-                arten.append(ereignis["art"])
+            if ereignis and ereignis["art"] == NACHFRAGEN:
+                je_frage[ereignis["titel"]] = je_frage.get(ereignis["titel"], 0) + 1
 
-        self.assertEqual(arten.count(NACHFRAGEN), 1, arten)
+        self.assertTrue(je_frage, "Eine Absage muss zu einer Rückfrage führen")
+        for titel, anzahl in je_frage.items():
+            self.assertEqual(anzahl, 1, f"{titel}: {anzahl} Rückfragen")
 
 
 class DasEndeKommtVonSelbst(unittest.TestCase):
